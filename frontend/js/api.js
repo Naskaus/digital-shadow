@@ -46,7 +46,8 @@ const API = {
             // Gestion spéciale pour l erreur 401 (Token expiré)
             if (response.status === 401) {
                 localStorage.removeItem("shadow_token");
-                window.location.reload(); // Renvoie au login
+                sessionStorage.removeItem("shadow_auth");
+                window.location.href = 'index.html'; // Redirect to login instead of reload
                 throw new Error("Session expired");
             }
 
