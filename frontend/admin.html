@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Digital Shadow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/custom.css">
+</head>
+
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <nav class="sticky top-0 z-40 bg-gray-800 border-b border-gray-700 shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <span class="text-xl">🛠️</span>
+                    <span class="font-bold text-lg uppercase tracking-widest">Admin Panel</span>
+                </div>
+                <div class="flex items-center space-x-8">
+                    <a href="dashboard.html"
+                        class="text-gray-400 hover:text-white px-1 py-4 text-sm font-medium transition-colors">Dashboard</a>
+                    <a href="compare.html"
+                        class="text-gray-400 hover:text-white px-1 py-4 text-sm font-medium transition-colors">Compare</a>
+                    <a href="performances/index.html"
+                        class="text-gray-400 hover:text-white px-1 py-4 text-sm font-medium transition-colors">📈
+                        Performances</a>
+                    <a href="admin.html"
+                        class="text-white border-b-2 border-primary px-1 py-4 text-sm font-medium">Admin</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold mb-4">Import Data</h1>
+            <p class="text-gray-400">Upload Excel ledger for the 2024-2025 period</p>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="flex justify-between mb-12 relative">
+            <div class="absolute top-1/2 left-0 w-full h-0.5 bg-gray-800 -z-10 -translate-y-1/2"></div>
+            <div class="step-marker" data-step="1">
+                <div
+                    class="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold text-white border-4 border-gray-900">
+                    1</div>
+                <span
+                    class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold text-primary">Upload</span>
+            </div>
+            <div class="step-marker" data-step="2">
+                <div
+                    class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center font-bold text-gray-500 border-4 border-gray-900">
+                    2</div>
+                <span
+                    class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold text-gray-500">Preview</span>
+            </div>
+            <div class="step-marker" data-step="3">
+                <div
+                    class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center font-bold text-gray-500 border-4 border-gray-900">
+                    3</div>
+                <span
+                    class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold text-gray-500">Import</span>
+            </div>
+        </div>
+
+        <!-- Step Containers -->
+        <section id="step-1" class="glass p-8 rounded-3xl text-center">
+            <div class="border-2 border-dashed border-gray-700 rounded-2xl p-12 hover:border-primary transition-colors group cursor-pointer"
+                onclick="document.getElementById('file-input').click()">
+                <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
+                <svg xmlns="http://www.w3.org/2000/svg"
+                    class="h-16 w-16 mx-auto mb-4 text-gray-600 group-hover:text-primary transition-colors" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <h3 class="text-xl font-bold mb-2">Click to select ledger file</h3>
+                <p class="text-sm text-gray-500">Only `.xlsx` or `.xls` files are supported</p>
+                <div id="file-info" class="mt-4 hidden p-3 bg-primary/10 rounded-lg text-primary text-sm font-bold">
+                    Selected: <span id="filename">--</span>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-center">
+                <button id="preview-btn" disabled
+                    class="bg-primary hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-3 px-12 rounded-xl transition-all shadow-lg active:scale-95">
+                    Analyze & Preview
+                </button>
+            </div>
+
+            <div class="mt-8">
+                <a href="#" class="text-primary hover:underline text-xs font-bold uppercase tracking-widest">Download
+                    Excel Template</a>
+            </div>
+        </section>
+
+        <section id="step-2" class="hidden animate-in slide-in-from-bottom-4 duration-500">
+            <div class="glass p-8 rounded-3xl mb-8">
+                <h3 class="text-2xl font-bold mb-6">Validation Summary</h3>
+                <div id="validation-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <!-- Stats -->
+                </div>
+
+                <div id="validation-alerts" class="space-y-3 mb-8">
+                    <!-- Alerts -->
+                </div>
+
+                <h4 class="text-lg font-bold mb-4">Sample Data (First 10 Rows)</h4>
+                <div class="table-container bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-800 text-gray-400 uppercase font-bold">
+                            <tr id="preview-headers"></tr>
+                        </thead>
+                        <tbody id="preview-body" class="divide-y divide-gray-800 text-gray-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="glass p-8 rounded-3xl">
+                <h3 class="text-xl font-bold mb-6">Import Options</h3>
+                <div class="space-y-4 mb-8">
+                    <label
+                        class="flex items-center gap-4 p-4 bg-gray-800/40 rounded-xl border border-gray-700 cursor-pointer group hover:border-red-500/50 transition-all">
+                        <input type="checkbox" id="replace-data" class="w-5 h-5 accent-red-500">
+                        <div class="flex-1">
+                            <div class="font-bold text-white group-hover:text-red-500 transition-colors">Replace
+                                existing data</div>
+                            <div class="text-xs text-gray-500 italic">⚠️ This will delete all current records before
+                                importing</div>
+                        </div>
+                    </label>
+                    <label
+                        class="flex items-center gap-4 p-4 bg-gray-800/40 rounded-xl border border-primary/20 cursor-pointer group">
+                        <input type="checkbox" id="calc-totals" checked class="w-5 h-5 accent-primary">
+                        <div class="flex-1">
+                            <div class="font-bold text-white">Auto-calculate totals</div>
+                            <div class="text-xs text-gray-500 italic">Recalculate Profit and Margins after import</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="flex justify-between">
+                    <button class="prev-btn text-gray-500 hover:text-white font-bold px-8">Back</button>
+                    <button id="import-btn"
+                        class="bg-primary hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-xl shadow-lg transition-all active:scale-95">
+                        Proceed with Import
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="step-3" class="hidden text-center py-12">
+            <div id="import-loading">
+                <div class="relative w-24 h-24 mx-auto mb-8">
+                    <div class="absolute inset-0 border-4 border-gray-800 rounded-full"></div>
+                    <div id="progress-ring"
+                        class="absolute inset-0 border-4 border-primary rounded-full transition-all duration-1000"
+                        style="clip-path: polygon(0 0, 100% 0, 100% 0, 100% 0, 0 0)"></div>
+                </div>
+                <h3 id="import-status-text" class="text-2xl font-bold mb-2">Importing Data...</h3>
+                <p id="import-detail-text" class="text-gray-500">Please do not close this window</p>
+            </div>
+
+            <div id="import-success" class="hidden">
+                <div
+                    class="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Import Complete!</h3>
+                <p class="text-gray-400 mb-8" id="import-summary">Successfully imported 0 records across 7 bars.</p>
+                <a href="dashboard.html"
+                    class="inline-block bg-primary hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-xl transition-all">
+                    View Dashboard
+                </a>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-900 border border-red-900/50 max-w-md w-full p-8 rounded-3xl shadow-3xl text-center">
+            <div class="text-red-500 text-4xl mb-6">⚠️</div>
+            <h2 class="text-2xl font-bold text-white mb-2">Dangerous Action</h2>
+            <p class="text-gray-400 mb-8">You are about to <span class="text-red-500 font-bold">DELETE ALL</span>
+                existing data. This cannot be undone.</p>
+
+            <div class="mb-8">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Type "CONFIRM DELETE" to
+                    proceed</label>
+                <input type="text" id="confirm-input"
+                    class="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-center text-red-500 font-bold outline-none focus:border-red-500 transition-colors">
+            </div>
+
+            <div class="flex gap-4">
+                <button id="cancel-confirm" class="flex-1 text-gray-500 hover:text-white font-bold py-3">Cancel</button>
+                <button id="final-import-btn" disabled
+                    class="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-30 text-white font-bold py-3 rounded-xl transition-all">
+                    Delete & Import
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/admin.js"></script>
+</body>
+
+</html>

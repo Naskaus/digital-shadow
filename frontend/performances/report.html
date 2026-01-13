@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Data Report</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            /* Light background like a spreadsheet app context */
+            --header-bg: #f8f9fa;
+            --border: #d0d7de;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --accent-blue: #0969da;
+            --positive: #1a7f37;
+            --negative: #d1242f;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #ffffff;
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            font-size: 13px;
+            /* Compact font size */
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            /* Slight roundness */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            white-space: nowrap;
+            /* Prevent wrapping for spreadsheet look */
+        }
+
+        thead {
+            background-color: #f1f3f4;
+            /* Google Sheets header grey */
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            border-bottom: 2px solid #e0e0e0;
+            border-right: 1px solid #e0e0e0;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 6px 12px;
+            border-bottom: 1px solid #eee;
+            border-right: 1px solid #eee;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fcfcfc;
+        }
+
+        tr:hover {
+            background-color: #f5f8ff;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .profit-pos {
+            color: var(--positive);
+            font-weight: 500;
+        }
+
+        .profit-neg {
+            color: var(--negative);
+            font-weight: 500;
+        }
+
+        .loading {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>DATA_MASTER_2025 (Live View)</h1>
+        <a href="/dashboard" class="nav-link">← Back to Dashboard</a>
+    </header>
+
+    <div id="loading" class="loading">Loading report data...</div>
+
+    <div id="app" style="display: none;" class="table-container">
+        <table id="reportTable">
+            <thead>
+                <tr>
+                    <th>Bar</th>
+                    <th>Month</th>
+                    <th>Date</th>
+                    <th>Agent</th>
+                    <th>Staff ID</th>
+                    <th class="text-right">Profit</th>
+                    <th>Ingested At</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        const formatCurrency = (val) => {
+            return new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 0 }).format(val);
+        };
+
+        const formatDate = (isoStr) => {
+            if (!isoStr) return '';
+            // Convert YYYY-MM-DD to M/D/YYYY
+            const [y, m, d] = isoStr.split('-');
+            return `${parseInt(m)}/${parseInt(d)}/${y}`;
+        };
+
+        async function initReport() {
+            try {
+                const res = await fetch('/api/report');
+                const data = await res.json();
+
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+
+                const tbody = document.querySelector('#reportTable tbody');
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+
+                    const profitVal = parseFloat(row.profit);
+                    const profitClass = profitVal < 0 ? 'profit-neg' : 'profit-pos';
+
+                    tr.innerHTML = `
+                        <td>${row.bar}</td>
+                        <td>${row.month}</td>
+                        <td>${formatDate(row.date)}</td>
+                        <td>${row.agent}</td>
+                        <td>${row.staff_id}</td>
+                        <td class="text-right ${profitClass}">${formatCurrency(row.profit)}</td>
+                        <td style="color: #888; font-size: 11px;">${row.ingested_at || ''}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').textContent = "Failed to load data.";
+            }
+        }
+
+        initReport();
+    </script>
+</body>
+
+</html>

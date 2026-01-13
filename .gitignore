@@ -1,0 +1,33 @@
+# Git ignore file for Digital Shadow
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local dev files
+.env
+*.local
+
+# Raw data files (too large for git)
+*.csv
+november_data.html
+DATA_MASTER_2025.html

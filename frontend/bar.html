@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bar Detail | Digital Shadow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.0.0/cdn.min.js"></script>
+    <link rel="stylesheet" href="css/custom.css">
+</head>
+
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <nav class="sticky top-0 z-40 bg-gray-800 border-b border-gray-700 shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <a href="dashboard.html" class="text-gray-400 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </a>
+                    <span id="header-bar-name" class="font-bold text-xl uppercase tracking-widest text-primary">BAR
+                        NAME</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="export-excel-btn"
+                        class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+                        <span>Export Excel</span>
+                    </button>
+                    <button id="logout-btn" class="text-gray-400 hover:text-red-500 transition-colors">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Header & Action Bar -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+                <h1 id="bar-title" class="text-3xl font-bold">--</h1>
+                <p id="bar-location" class="text-gray-400">Loading location info...</p>
+            </div>
+
+            <div class="flex flex-wrap gap-4 items-center bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400 uppercase font-bold">Range:</span>
+                    <input type="date" id="start-date"
+                        class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-xs">
+                    <span class="text-gray-600">-</span>
+                    <input type="date" id="end-date"
+                        class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-xs">
+                </div>
+                <div class="h-6 w-px bg-gray-700 mx-2"></div>
+                <button id="compare-btn"
+                    class="text-primary hover:text-white font-bold text-xs flex items-center gap-1 border border-primary hover:bg-primary px-3 py-1.5 rounded-lg transition-all">
+                    📊 Compare
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Cards populated by JS -->
+            <div class="glass p-5 rounded-2xl flex flex-col justify-between h-32">
+                <span class="text-xs text-gray-500 font-bold uppercase">Total Sales</span>
+                <h4 id="metric-sales" class="text-2xl font-bold">-- THB</h4>
+                <div id="trend-sales" class="text-xs">--</div>
+            </div>
+            <div class="glass p-5 rounded-2xl flex flex-col justify-between h-32">
+                <span class="text-xs text-gray-500 font-bold uppercase">Net Profit</span>
+                <h4 id="metric-profit" class="text-2xl font-bold">-- THB</h4>
+                <div id="trend-profit" class="text-xs">--</div>
+            </div>
+            <div class="glass p-5 rounded-2xl flex flex-col justify-between h-32">
+                <span class="text-xs text-gray-500 font-bold uppercase">Profit/Dancer</span>
+                <h4 id="metric-eff" class="text-2xl font-bold">-- THB</h4>
+                <div id="trend-eff" class="text-xs">--</div>
+            </div>
+            <div class="glass p-5 rounded-2xl flex flex-col justify-between h-32">
+                <span class="text-xs text-gray-500 font-bold uppercase">Net Margin</span>
+                <h4 id="metric-margin" class="text-2xl font-bold">-- %</h4>
+                <div id="trend-margin" class="text-xs">--</div>
+            </div>
+        </div>
+
+        <!-- Main Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Comparison Trend -->
+            <div class="lg:col-span-2 glass p-6 rounded-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="text-lg font-bold">Trends Over Time</h4>
+                    <select id="granularity"
+                        class="bg-gray-800 border border-gray-700 rounded-lg text-xs px-2 py-1 outline-none">
+                        <option value="day">Daily</option>
+                        <option value="week">Weekly</option>
+                        <option value="month">Monthly</option>
+                    </select>
+                </div>
+                <div class="h-96 w-full">
+                    <canvas id="trends-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Breakdown -->
+            <div class="glass p-6 rounded-2xl h-full flex flex-col">
+                <h4 class="text-lg font-bold mb-6">Revenue Mix</h4>
+                <div class="flex-grow flex items-center justify-center">
+                    <div class="h-64 w-full">
+                        <canvas id="rev-mix-chart"></canvas>
+                    </div>
+                </div>
+                <div id="rev-mix-legend" class="mt-6 space-y-2">
+                    <!-- Legend items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Secondary Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="glass p-6 rounded-2xl">
+                <h4 class="text-lg font-bold mb-4">Correlation: Dancers vs Profit</h4>
+                <div class="h-80 w-full">
+                    <canvas id="correlation-chart"></canvas>
+                </div>
+            </div>
+            <div class="glass p-6 rounded-2xl">
+                <h4 class="text-lg font-bold mb-4">Expense Breakdown</h4>
+                <div class="h-80 w-full">
+                    <canvas id="expense-breakdown-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="glass p-6 rounded-2xl mb-8 overflow-hidden">
+            <h4 class="text-lg font-bold mb-6">Performance Map (Mon - Sun)</h4>
+            <div class="table-container">
+                <table class="w-full border-collapse">
+                    <thead class="bg-gray-800/50">
+                        <tr>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-500">Week</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Mon</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Tue</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Wed</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Thu</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Fri</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Sat</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-gray-400">Sun</th>
+                            <th class="p-2 border border-gray-700 text-xs uppercase font-bold text-blue-400">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="heatmap-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 justify-end">
+                <span class="flex items-center gap-1"><span
+                        class="w-3 h-3 rounded bg-red-900/60 border border-red-500"></span>
+                    < 10k</span>
+                        <span class="flex items-center gap-1"><span
+                                class="w-3 h-3 rounded bg-yellow-900/60 border border-yellow-500"></span> 10k -
+                            20k</span>
+                        <span class="flex items-center gap-1"><span
+                                class="w-3 h-3 rounded bg-green-900/60 border border-green-500"></span> > 20k</span>
+            </div>
+        </div>
+
+        <!-- Raw Data Table -->
+        <section class="glass rounded-2xl overflow-hidden mb-8">
+            <div class="p-6 border-b border-gray-700 flex flex-wrap justify-between items-center gap-4">
+                <h4 class="text-lg font-bold">Ledger Details</h4>
+                <div class="flex gap-4">
+                    <input type="text" id="table-search" placeholder="Search..."
+                        class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-primary">
+                    <button id="toggle-columns"
+                        class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors">Columns</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-800 text-gray-500 text-[10px] uppercase font-bold">
+                        <tr id="table-headers">
+                            <!-- Headers with sort -->
+                        </tr>
+                    </thead>
+                    <tbody id="raw-data-body" class="divide-y divide-gray-800 text-sm">
+                        <!-- Rows -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-gray-800/30 flex justify-between items-center">
+                <div id="pagination-info" class="text-xs text-gray-500 italic">Showing 1-50 of 0 records</div>
+                <div class="flex gap-px rounded overflow-hidden">
+                    <button
+                        class="px-3 py-1 bg-gray-700 hover:bg-primary transition-colors disabled:opacity-50">Prev</button>
+                    <button
+                        class="px-3 py-1 bg-gray-700 hover:bg-primary transition-colors disabled:opacity-50">Next</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Daily Detail Modal -->
+    <div id="detail-modal"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
+        <div class="glass max-w-2xl w-full rounded-2xl overflow-hidden shadow-3xl transform transition-all scale-95 opacity-0 duration-300"
+            id="modal-container">
+            <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+                <h2 id="modal-title" class="text-xl font-bold">Sales Detail</h2>
+                <button id="close-modal" class="text-gray-500 hover:text-white text-2xl">✕</button>
+            </div>
+            <div class="p-8 grid grid-cols-2 gap-6" id="modal-content">
+                <!-- Content -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/bar.js"></script>
+</body>
+
+</html>

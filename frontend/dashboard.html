@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Digital Shadow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.0.0/cdn.min.js"></script>
+    <link rel="stylesheet" href="css/custom.css">
+</head>
+
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <!-- Navigation Header -->
+    <nav class="sticky top-0 z-40 bg-gray-800 border-b border-gray-700 shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🔒</span>
+                    <span class="font-bold text-xl tracking-tight">DIGITAL <span
+                            class="text-primary text-opacity-80">SHADOW</span></span>
+                </div>
+
+                <!-- Nav Links -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="dashboard.html"
+                        class="text-white border-b-2 border-primary px-1 py-4 text-sm font-medium">Dashboard</a>
+                    <a href="compare.html"
+                        class="text-gray-400 hover:text-white px-1 py-4 text-sm font-medium transition-colors">Compare</a>
+                    <a href="performances/index.html"
+                        class="text-gray-400 hover:text-white px-1 py-4 text-sm font-medium transition-colors">📈 Performances</a>
+                    <a href="admin.html"
+                        class="text-gray-400 hover:text-white px-1 py-4 text-sm font-medium transition-colors">Admin</a>
+                </div>
+
+                <!-- User / Logout -->
+                <div class="flex items-center gap-4">
+                    <button id="logout-btn"
+                        class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-2 text-sm font-medium">
+                        <span>Logout</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Filters Bar -->
+        <section class="mb-8 p-6 glass rounded-2xl flex flex-wrap gap-6 items-end no-print">
+            <!-- Year Range -->
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-400 mb-3">Select Years</label>
+                <div class="flex flex-wrap gap-4">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="year" value="2024" class="sr-only peer">
+                        <div
+                            class="px-4 py-2 bg-gray-800 rounded-lg border border-gray-700 peer-checked:bg-primary peer-checked:border-primary transition-all">
+                            2024</div>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="year" value="2025" class="sr-only peer">
+                        <div
+                            class="px-4 py-2 bg-gray-800 rounded-lg border border-gray-700 peer-checked:bg-primary peer-checked:border-primary transition-all">
+                            2025</div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Bar Selector (Grouped by City) -->
+            <div id="bar-selector-container" class="flex-[3] min-w-[300px]">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Selection
+                </label>
+                <div id="dashboard-bar-selector" class="flex flex-wrap gap-x-8 gap-y-4 p-1">
+                    <!-- Loading state -->
+                    <div class="animate-pulse flex gap-4">
+                        <div class="h-8 w-24 bg-gray-800 rounded-lg"></div>
+                        <div class="h-8 w-24 bg-gray-800 rounded-lg"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date Range -->
+            <div class="flex-1 min-w-[300px]">
+                <label class="block text-sm font-medium text-gray-400 mb-3">Date Range</label>
+                <div class="flex items-center gap-2">
+                    <input type="date" id="start-date"
+                        class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none w-full">
+                    <span class="text-gray-500">to</span>
+                    <input type="date" id="end-date"
+                        class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none w-full">
+                </div>
+            </div>
+        </section>
+
+        <!-- Global Overview Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass p-6 rounded-2xl card-hover">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-gray-400 text-sm font-medium uppercase tracking-wider">Total Sales</span>
+                    <span class="p-2 bg-blue-500/10 rounded-lg text-primary">💰</span>
+                </div>
+                <div class="flex items-baseline gap-3">
+                    <h3 id="stat-total-sales" class="text-3xl font-bold">0 THB</h3>
+                    <span id="trend-sales" class="text-sm font-semibold flex items-center gap-1">--%
+                        <span>--</span></span>
+                </div>
+                <p class="text-gray-500 text-xs mt-2 italic">vs previous period</p>
+            </div>
+
+            <div class="glass p-6 rounded-2xl card-hover">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-gray-400 text-sm font-medium uppercase tracking-wider">Total Expenses</span>
+                    <span class="p-2 bg-red-500/10 rounded-lg text-red-500">💸</span>
+                </div>
+                <div class="flex items-baseline gap-3">
+                    <h3 id="stat-total-expenses" class="text-3xl font-bold">0 THB</h3>
+                    <span id="trend-expenses" class="text-sm font-semibold flex items-center gap-1">--%
+                        <span>--</span></span>
+                </div>
+                <p class="text-gray-500 text-xs mt-2 italic">vs previous period</p>
+            </div>
+
+            <div class="glass p-6 rounded-2xl card-hover border-b-4 border-green-500">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-gray-400 text-sm font-medium uppercase tracking-wider">Net Profit</span>
+                    <span class="p-2 bg-green-500/10 rounded-lg text-green-500">📈</span>
+                </div>
+                <div class="flex items-baseline gap-3">
+                    <h3 id="stat-net-profit" class="text-3xl font-bold">0 THB</h3>
+                    <span id="trend-profit" class="text-sm font-semibold flex items-center gap-1">--%
+                        <span>--</span></span>
+                </div>
+                <p class="text-gray-500 text-xs mt-2 italic">vs previous period</p>
+            </div>
+        </section>
+
+        <!-- City Comparison & Revenue Breakdown -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- City Charts -->
+            <div class="glass p-6 rounded-2xl">
+                <h4 class="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <span>🇹🇭</span> City Comparison
+                </h4>
+                <div class="h-80 w-full">
+                    <canvas id="city-comparison-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Revenue Breakdown -->
+            <div class="glass p-6 rounded-2xl">
+                <h4 class="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <span>📊</span> Revenue Breakdown
+                </h4>
+                <div class="h-80 w-full">
+                    <canvas id="revenue-breakdown-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performers Table -->
+        <section class="glass rounded-2xl overflow-hidden">
+            <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+                <h4 class="text-lg font-semibold">Top Performing Bars</h4>
+                <button class="text-primary text-sm font-medium hover:underline">Download Report</button>
+            </div>
+            <div class="table-container">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4 font-semibold cursor-pointer hover:text-white transition-colors"
+                                data-sort="name">Bar Name ↕</th>
+                            <th class="px-6 py-4 font-semibold cursor-pointer hover:text-white transition-colors text-center"
+                                data-sort="city">City</th>
+                            <th class="px-6 py-4 font-semibold cursor-pointer hover:text-white transition-colors text-right"
+                                data-sort="sales">Sales</th>
+                            <th class="px-6 py-4 font-semibold cursor-pointer hover:text-white transition-colors text-right"
+                                data-sort="profit">Net Profit</th>
+                            <th class="px-6 py-4 font-semibold cursor-pointer hover:text-white transition-colors text-right"
+                                data-sort="efficiency">Profit/Dancer</th>
+                            <th class="px-6 py-4 font-semibold text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-performers-body" class="divide-y divide-gray-700">
+                        <!-- Rows populated by JS -->
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-gray-500 italic">Loading bar data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+
+</html>

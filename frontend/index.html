@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Digital Shadow</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563EB',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/custom.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    
+    <div class="w-full max-w-md">
+        <!-- Logo/Title -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold flex items-center justify-center gap-3">
+                <span class="text-primary italic">🔒</span> Digital Shadow
+            </h1>
+            <p class="text-gray-400 mt-2">Financial Management Ledger</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="glass p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-xl font-semibold mb-6 text-center">Authentication Required</h2>
+            
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="pin" class="block text-sm font-medium text-gray-400 mb-2">Access PIN</label>
+                    <input 
+                        type="password" 
+                        id="pin" 
+                        name="pin" 
+                        maxlength="6" 
+                        inputmode="numeric" 
+                        pattern="[0-9]*"
+                        required 
+                        autofocus
+                        placeholder="••••••"
+                        class="w-full bg-gray-800 border border-gray-700 text-white text-3xl tracking-[1em] text-center rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    >
+                    <p id="error-message" class="text-red-500 text-sm mt-2 hidden text-center"></p>
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="submit-btn"
+                    class="w-full bg-primary hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <span id="btn-text">Unlock Dashboard</span>
+                    <div id="btn-spinner" class="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white hidden"></div>
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-gray-500 text-sm">
+            <p>Protected by Tailscale VPN</p>
+            <p class="mt-1">&copy; 2024 Digital Shadow v1.0</p>
+        </div>
+    </div>
+
+    <!-- Core Logic -->
+    <script type="module">
+        import Auth from './js/auth.js';
+        
+        // Redirect if already authenticated
+        Auth.checkAuth();
+
+        const loginForm = document.getElementById('login-form');
+        const pinInput = document.getElementById('pin');
+        const errorMessage = document.getElementById('error-message');
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnSpinner = document.getElementById('btn-spinner');
+
+        // Restrict to numeric input
+        pinInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pin = pinInput.value;
+
+            if (pin.length < 4) {
+                errorMessage.textContent = 'PIN must be at least 4 digits';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // UI Feedback
+            errorMessage.classList.add('hidden');
+            submitBtn.disabled = true;
+            btnText.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+
+            try {
+                const success = await Auth.login(pin);
+                if (success === false) {
+                    errorMessage.textContent = 'Invalid PIN. Please try again.';
+                    errorMessage.classList.remove('hidden');
+                    pinInput.value = '';
+                    pinInput.focus();
+                }
+            } catch (err) {
+                errorMessage.textContent = 'Connection error. Check backend status.';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
