@@ -1,0 +1,42 @@
+
+# Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.env
+.env.*
+!.env.example
+*.egg-info/
+dist/
+build/
+.eggs/
+credentials.json
+backend/credentials.json
+
+# Frontend
+node_modules/
+dist/
+.cache/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Alembic
+*.db
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

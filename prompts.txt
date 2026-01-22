@@ -1,0 +1,125 @@
+3.7 PROMPTS ANTIGRAVITY (séparés)
+(A) Prompt “BOOTSTRAP / ARCHI” — à coller en premier
+ROLE: You are a senior full-stack engineer (FastAPI + Postgres + React/Vite/TS).
+You will build DIGITAL-SHADOW v0.2 using the repository structure described in CONTEXT.md.
+
+NON-NEGOTIABLE RULES
+- CONTEXT.md is READ ONLY. Never modify it.
+- Maintain clean architecture, no dead code, no temporary scripts left behind.
+- Keep files small; refactor if a file grows too long.
+- Verify your work continuously: imports, folder structure, running app, logs.
+
+SESSION MEMORY RULE
+- At the end of each session (ONLY when Sebastien says: "fin de session"),
+append a summary of what you did into AI_Memory.md (files changed, decisions, next steps).
+
+TASK NOW
+1) Scaffold the monorepo structure exactly.
+2) Implement backend skeleton (FastAPI app, config, DB session, Alembic).
+3) Implement frontend skeleton (Login, Landing, Staff tabs placeholders).
+4) Provide run instructions for local dev and for Raspberry Pi deployment.
+
+Ask questions ONLY if absolutely blocking. Do not invent missing info.
+
+(B) Prompt “BACKEND — Import & Data Model”
+ROLE: Backend engineer.
+
+GOAL
+Implement the audit-proof import pipeline from 2 Google Sheets (2025 + 2026) into Postgres.
+
+ABSOLUTE DATA RULES
+- Google Sheets is the source of truth.
+- Never recompute totals/profit/cuts.
+- STAFF ID is atomic: "NNN - NICKNAME". Store it as-is (trim only). Never split for identity.
+- You may derive staff_num_prefix as a separate field for analytics only.
+- Agents are BAR-SCOPED. bar+agent_id is the unique agent identity.
+- agent_id_derived is computed from staff_num_prefix using agent_range_rules per bar.
+- If AGENT label from sheet mismatches derived agent_id: flag mismatch; never auto-correct.
+
+DELIVERABLES
+- SQLAlchemy models + Alembic migrations
+- Import service:
+  - read A:Q
+  - deterministic normalization + row_hash
+  - raw_rows write
+  - validate; write import_errors if invalid
+  - upsert fact_rows by business_key = sha256(bar|date|staff_id)
+  - import_runs stats + checksum
+- API routes:
+  POST /api/import/run
+  GET  /api/import/runs
+  GET  /api/import/runs/{id}
+  GET  /api/import/runs/{id}/errors
+
+No test scripts left behind. No dead code.
+
+(C) Prompt “FRONTEND — Google-like table + filters”
+ROLE: Frontend engineer (React/Vite/TS).
+
+GOAL
+Build a smooth "Google Sheets-like" table UI for fact_rows:
+- infinite scroll (no 500 pages)
+- virtualization
+- server-side filtering and sorting
+- KPI strip always consistent with filters
+
+STACK
+- TanStack Table + TanStack Query (infinite query)
+- react-virtual for virtualization
+- Tailwind UI
+
+PAGES
+- /login
+- /app (landing)
+- /staff with tabs: Import&QA, Data Table, Analytics, Settings (admin)
+
+RULES
+- Keep components small and reusable.
+- No dead code.
+- Verify with real API calls (mock only if necessary, remove after).
+
+DELIVERABLES
+- Filter bar (multi-select)
+- KPI strip calling /api/rows/kpis
+- Virtualized table calling /api/rows (cursor+limit)
+- Row detail drawer
+
+(D) Prompt “ANALYTICS — leaderboards”
+ROLE: Full-stack engineer.
+
+GOAL
+Implement analytics endpoints + UI for:
+- Agent leaderboard (bar-scoped identity)
+- Girls leaderboard (staff_id atomic)
+
+KPI REQUIREMENTS
+- Volume: girls_count, staff_days
+- Performance: profit_sum, profit_per_day, profit_avg_per_girl
+- Constance: days_active, avg_days_per_girl
+- Sorting any column asc/desc
+- Filters multi-select: bar, year, month, contract, agent
+
+RULES
+- All aggregates must match current filters exactly.
+- No silent assumptions. If mapping missing, show explicit "unmapped" bucket.
+
+DELIVERABLES
+- Backend SQL queries (efficient, indexed)
+- Frontend tables with sorting + drill-down pages
+
+(E) Prompt “BACKOFFICE Settings”
+ROLE: Backend+Frontend engineer.
+
+GOAL
+Admin settings:
+- Google sources config (sheet_id/tab/range per year)
+- agent_range_rules per bar (no overlap validation)
+- users management (admin/viewer)
+
+SECURITY
+- Admin-only endpoints protected by role checks.
+
+DELIVERABLES
+- Settings UI
+- CRUD endpoints
+- Validation + error messages
