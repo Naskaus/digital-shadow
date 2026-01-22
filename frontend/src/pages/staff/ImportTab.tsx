@@ -15,7 +15,7 @@ export default function ImportTab() {
     const loadRuns = async () => {
         try {
             const data = await importApi.listRuns(20, 0)
-            setRuns(data)
+            setRuns(data || [])
         } catch (err) {
             console.error('Failed to load runs:', err)
         } finally {
@@ -83,7 +83,7 @@ export default function ImportTab() {
     const loadErrors = async (runId: number) => {
         try {
             const errors = await importApi.getErrors(runId, 50, 0)
-            setSelectedRunErrors({ runId, errors })
+            setSelectedRunErrors({ runId, errors: errors || [] })
         } catch (err) {
             console.error('Failed to load errors:', err)
         }

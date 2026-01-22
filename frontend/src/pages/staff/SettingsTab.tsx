@@ -26,7 +26,7 @@ export default function SettingsTab() {
         try {
             setLoading(true)
             const data = await settingsApi.listSources()
-            setSources(data)
+            setSources(data || [])
             setError(null)
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load sources')
@@ -39,7 +39,7 @@ export default function SettingsTab() {
         try {
             setLoadingSheets(true)
             const data = await settingsApi.discoverSheets()
-            setDiscoveredSheets(data)
+            setDiscoveredSheets(data || [])
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to discover sheets')
         } finally {
