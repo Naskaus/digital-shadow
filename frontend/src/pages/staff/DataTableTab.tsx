@@ -10,6 +10,7 @@ export default function DataTableTab() {
     const [month, setMonth] = useState<number[]>([])
     const [agent, setAgent] = useState<string[]>([]) // Changed to string array for BAR|ID keys
     const [search, setSearch] = useState('')
+    const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' })
     const [filtersOpen, setFiltersOpen] = useState(false) // Mobile filter collapse
 
     // Derived filter object for API
@@ -18,8 +19,10 @@ export default function DataTableTab() {
         year: year.length > 0 ? year : undefined,
         month: month.length > 0 ? month : undefined,
         agent: agent.length > 0 ? agent : undefined,
+        start_date: dateRange.start || undefined,
+        end_date: dateRange.end || undefined,
         staff_search: search || undefined,
-    }), [bar, year, month, agent, search])
+    }), [bar, year, month, agent, search, dateRange])
 
     // Fetch KPIs
     const { data: kpis } = useQuery({
@@ -64,7 +67,7 @@ export default function DataTableTab() {
         if (!lastItem) return
 
         if (
-            lastItem.index >= allRows.length - 1 &&
+            lastItem.index >= allRows.length - 10 &&
             hasNextPage &&
             !isFetchingNextPage
         ) {
@@ -80,6 +83,12 @@ export default function DataTableTab() {
 
     const formatMoney = (val?: number | null) =>
         val ? `฿${val.toLocaleString()}` : '-'
+
+    const formatCompactCurrency = (val?: number | null) => {
+        if (!val) return ''
+        if (val < 1000) return val.toString()
+        return (val / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'k'
+    }
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -142,8 +151,42 @@ export default function DataTableTab() {
                 {/* Vertical Divider */}
                 <div className="w-px h-8 bg-dark-700 hidden md:block self-center"></div>
 
-                {/* Year Filter */}
+                {/* Date Range Filter (Override) */}
                 <div className="flex flex-col gap-1 w-full md:w-auto">
+                    <label className="text-xs text-dark-400 font-medium uppercase">Date Range (Override)</label>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={dateRange.start}
+                            onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                            className="bg-dark-700 text-white text-xs px-2 py-1.5 rounded-lg border border-dark-600 focus:outline-none focus:border-primary-500"
+                            placeholder="Start"
+                        />
+                        <span className="text-dark-500">-</span>
+                        <input
+                            type="date"
+                            value={dateRange.end}
+                            onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                            className="bg-dark-700 text-white text-xs px-2 py-1.5 rounded-lg border border-dark-600 focus:outline-none focus:border-primary-500"
+                            placeholder="End"
+                        />
+                        {(dateRange.start || dateRange.end) && (
+                            <button
+                                onClick={() => setDateRange({ start: '', end: '' })}
+                                className="text-dark-400 hover:text-white"
+                                title="Clear Dates"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-8 bg-dark-700 hidden md:block self-center"></div>
+
+                {/* Year Filter */}
+                <div className={`flex flex-col gap-1 w-full md:w-auto transition-opacity ${dateRange.start && dateRange.end ? 'opacity-30 pointer-events-none' : ''}`}>
                     <label className="text-xs text-dark-400 font-medium uppercase">Year</label>
                     <div className="flex gap-2 flex-wrap">
                         <button
@@ -183,7 +226,7 @@ export default function DataTableTab() {
                 <div className="w-px h-8 bg-dark-700 hidden md:block self-center"></div>
 
                 {/* Month Filter */}
-                <div className="flex flex-col gap-1 w-full md:w-auto">
+                <div className={`flex flex-col gap-1 w-full md:w-auto transition-opacity ${dateRange.start && dateRange.end ? 'opacity-30 pointer-events-none' : ''}`}>
                     <label className="text-xs text-dark-400 font-medium uppercase">Month</label>
                     <div className="flex flex-wrap gap-1 w-full md:max-w-none">
                         <button
@@ -333,12 +376,13 @@ export default function DataTableTab() {
 
             {/* Virtualized Table */}
             <div className="flex-1 min-h-[600px] bg-dark-900/50 rounded-xl overflow-hidden border border-dark-700 flex flex-col">
-                <div className="hidden md:grid grid-cols-6 bg-dark-800 p-3 font-medium text-xs text-dark-400 uppercase tracking-wider border-b border-dark-700">
+                <div className="hidden md:grid grid-cols-7 bg-dark-800 p-3 font-medium text-xs text-dark-400 uppercase tracking-wider border-b border-dark-700">
                     <div className="col-span-1">Date</div>
                     <div className="col-span-1">Bar</div>
                     <div className="col-span-1">Staff ID</div>
                     <div className="col-span-1">Agent</div>
                     <div className="col-span-1 text-right">Drinks</div>
+                    <div className="col-span-1 text-right">Bonus</div>
                     <div className="col-span-1 text-right font-bold text-white">Profit</div>
                 </div>
 
@@ -388,12 +432,19 @@ export default function DataTableTab() {
                                                     <div className={`px-2 py-0.5 rounded-full ${row.agent_mismatch ? 'bg-red-900/50 text-red-300' : 'bg-dark-700 text-dark-300'}`}>
                                                         {row.agent_label || '-'}{row.agent_mismatch && ' (!)'}
                                                     </div>
-                                                    <div className="text-dark-300">🍹 {row.drinks || '-'}</div>
+                                                    <div className="text-dark-300 flex items-center gap-2">
+                                                        <span>🍹 {row.drinks || '-'}</span>
+                                                        {row.off && (
+                                                            <span className="text-xs bg-dark-700 text-dark-300 px-1.5 rounded">
+                                                                Off: {formatCompactCurrency(row.off)}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             {/* Desktop Layout */}
-                                            <div className="hidden md:grid grid-cols-6 p-3 text-sm items-center">
+                                            <div className="hidden md:grid grid-cols-7 p-3 text-sm items-center">
                                                 <div className="col-span-1 text-dark-300 truncate">{formatDate(row.date)}</div>
                                                 <div className="col-span-1 text-white font-medium truncate">{row.bar}</div>
                                                 <div className="col-span-1 text-primary-300 font-mono truncate">{row.staff_id}</div>
@@ -405,6 +456,9 @@ export default function DataTableTab() {
                                                 </div>
                                                 <div className="col-span-1 text-right text-dark-300">
                                                     {row.drinks || '-'}
+                                                </div>
+                                                <div className="col-span-1 text-right text-dark-300">
+                                                    {row.off ? formatCompactCurrency(row.off) : '-'}
                                                 </div>
                                                 <div className={`col-span-1 text-right text-lg font-bold ${(row.profit || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                                     {formatMoney(row.profit)}

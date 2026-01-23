@@ -52,6 +52,12 @@ export const api = {
             body: data ? JSON.stringify(data) : undefined,
         }),
 
+    patch: <T>(endpoint: string, data?: unknown) =>
+        request<T>(endpoint, {
+            method: 'PATCH',
+            body: data ? JSON.stringify(data) : undefined,
+        }),
+
     delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
 }
 
@@ -64,6 +70,8 @@ export const authApi = {
 
     register: (username: string, email: string, password: string) =>
         api.post('/auth/register', { username, email, password }),
+
+    getMe: () => api.get<User>('/auth/me'),
 }
 
 // Rows API
@@ -79,6 +87,7 @@ export interface FactRow {
     salary: number | null
     profit: number | null
     drinks: number | null
+    off: number | null
     total: number | null
     agent_mismatch: boolean
 }
@@ -217,4 +226,42 @@ export const settingsApi = {
 
     deleteAgentRule: (ruleId: number) =>
         api.delete<{ status: string; id: number }>(`/settings/agent-rules/${ruleId}`),
+}
+
+// Users API
+export interface User {
+    id: number
+    username: string
+    email: string
+    role: 'admin' | 'viewer'
+    is_active: boolean
+    created_at: string
+}
+
+export interface UserCreateInput {
+    email: string
+    password: string
+    role: 'admin' | 'viewer'
+}
+
+export interface UserUpdateInput {
+    email?: string
+    role?: 'admin' | 'viewer'
+    is_active?: boolean
+}
+
+export const usersApi = {
+    getAll: () => api.get<User[]>('/users'),
+
+    create: (data: UserCreateInput) =>
+        api.post<User>('/users', data),
+
+    update: (userId: number, data: UserUpdateInput) =>
+        api.patch<User>(`/users/${userId}`, data),
+
+    resetPassword: (userId: number, password: string) =>
+        api.put<User>(`/users/${userId}/password`, { password }),
+
+    delete: (userId: number) =>
+        api.delete<void>(`/users/${userId}`),
 }

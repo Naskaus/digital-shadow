@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth_router, import_router, rows_router, settings_router
+from app.api import auth_router, import_router, rows_router, settings_router, users_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -43,6 +43,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(import_router, prefix="/api")
 app.include_router(rows_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
 
 
 @app.get("/api/health")
@@ -52,6 +53,23 @@ async def health_check():
 
 
 # Serve frontend static files in production
-frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
-if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+# Serve frontend static files in production
+# Check for deployment structure (frontend_build at root, backend at root)
+# Current file: .../backend/app/main.py
+project_root = Path(__file__).parent.parent.parent
+frontend_build = project_root / "frontend_build"
+
+# Fallback for local dev or different structure
+if not frontend_build.exists():
+    frontend_build = project_root / "frontend" / "dist"
+
+if frontend_build.exists():
+    from fastapi.responses import FileResponse
+    
+    @app.get("/{path_name:path}")
+    async def catch_all(path_name: str):
+         # If path is a file in build, serve it; otherwise index.html
+         file_path = frontend_build / path_name
+         if file_path.is_file():
+             return FileResponse(file_path)
+         return FileResponse(frontend_build / "index.html")

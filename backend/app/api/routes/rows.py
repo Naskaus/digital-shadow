@@ -3,6 +3,7 @@ Data rows routes for table display.
 """
 from fastapi import APIRouter, Query
 from sqlalchemy import func, select, extract, and_, or_
+from datetime import datetime
 
 from app.api.deps import CurrentUser, DbSession
 from app.models import FactRow
@@ -20,6 +21,8 @@ async def list_rows(
     month: list[int] | None = Query(None),
     contract: list[str] | None = Query(None),
     agent: list[str] | None = Query(None), # Changed to list[str] for composite keys
+    start_date: str | None = None,
+    end_date: str | None = None,
     staff_search: str | None = None,
     # Pagination ...
     cursor: int | None = None,
@@ -35,12 +38,23 @@ async def list_rows(
     query = select(FactRow)
     
     # Apply filters
+    # Apply filters
     if bar:
         query = query.where(FactRow.bar.in_(bar))
-    if year:
-        query = query.where(FactRow.source_year.in_(year))
-    if month:
-        query = query.where(extract('month', FactRow.date).in_(month))
+    
+    # Date Filtering: Prioritize Date Range, fallback to Year/Month
+    if start_date and end_date:
+        try:
+            s_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.where(and_(func.date(FactRow.date) >= s_date, func.date(FactRow.date) <= e_date))
+        except ValueError:
+             pass
+    else:
+        if year:
+            query = query.where(FactRow.source_year.in_(year))
+        if month:
+            query = query.where(extract('month', FactRow.date).in_(month))
     if contract:
         query = query.where(FactRow.contract.in_(contract))
     if agent:
@@ -74,14 +88,18 @@ async def list_rows(
         query = query.where(FactRow.staff_id.ilike(f"%{staff_search}%"))
     
     # Cursor-based pagination
+    # Cursor-based pagination
     if cursor:
-        query = query.where(FactRow.id > cursor)
+        if sort_order == "desc":
+            query = query.where(FactRow.id < cursor)
+        else:
+            query = query.where(FactRow.id > cursor)
     
     # Sorting
     if sort_order == "asc":
-        query = query.order_by(getattr(FactRow, sort_by).asc())
+        query = query.order_by(getattr(FactRow, sort_by).asc(), FactRow.id.asc())
     else:
-        query = query.order_by(getattr(FactRow, sort_by).desc())
+        query = query.order_by(getattr(FactRow, sort_by).desc(), FactRow.id.desc())
     
     # Limit
     query = query.limit(limit)
@@ -103,6 +121,8 @@ async def get_kpis(
     month: list[int] | None = Query(None),
     contract: list[str] | None = Query(None),
     agent: list[str] | None = Query(None),
+    start_date: str | None = None,
+    end_date: str | None = None,
     staff_search: str | None = None,
 ) -> RowsKPIResponse:
     """Get KPIs for filtered fact rows."""
@@ -116,12 +136,23 @@ async def get_kpis(
     )
     
     # Apply same filters
+    # Apply same filters
     if bar:
         query = query.where(FactRow.bar.in_(bar))
-    if year:
-        query = query.where(FactRow.source_year.in_(year))
-    if month:
-        query = query.where(extract('month', FactRow.date).in_(month))
+    
+    # Date Filtering: Prioritize Date Range, fallback to Year/Month
+    if start_date and end_date:
+        try:
+            s_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.where(and_(func.date(FactRow.date) >= s_date, func.date(FactRow.date) <= e_date))
+        except ValueError:
+             pass
+    else:
+        if year:
+            query = query.where(FactRow.source_year.in_(year))
+        if month:
+            query = query.where(extract('month', FactRow.date).in_(month))
     if contract:
          query = query.where(FactRow.contract.in_(contract))
     if agent:

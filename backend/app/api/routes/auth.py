@@ -2,11 +2,12 @@
 Authentication routes.
 """
 from datetime import timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 
-from app.api.deps import DbSession
+from app.api.deps import DbSession, get_current_user
 from app.core.config import get_settings
 from app.core.security import (
     create_access_token,
@@ -30,7 +31,7 @@ async def login(
     """Authenticate user and set JWT cookies."""
     result = await db.execute(
         select(AppUser).where(
-            AppUser.username == request.username,
+            (AppUser.username == request.username) | (AppUser.email == request.username),
             AppUser.is_active == True,
         )
     )
@@ -112,9 +113,7 @@ async def register(
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
-    db: DbSession,
-) -> UserResponse:
-    """Get current user info. Placeholder - requires auth implementation."""
-    # TODO: Use CurrentUser dependency once fully implemented
-    from fastapi import HTTPException, status
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented yet")
+    current_user: Annotated[AppUser, Depends(get_current_user)],
+) -> AppUser:
+    """Get current user info."""
+    return current_user

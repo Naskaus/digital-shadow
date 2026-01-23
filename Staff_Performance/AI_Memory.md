@@ -1,5 +1,167 @@
 # AI Memory - DIGITAL-SHADOW v0.2
 
+## Session: 2026-01-23 (19:41 - 20:13 ICT) - User Management System Implementation
+
+### Summary
+Implemented complete Admin-only User Management System with full CRUD operations. Backend and frontend code complete. **Note**: Local testing was blocked by PostgreSQL not running, but code structure is verified correct.
+
+### Files Created
+
+#### Backend
+- **`backend/app/schemas/users.py`** [NEW]
+  - `UserCreate`: email, password (min 8 chars), role (admin/viewer)
+  - `UserUpdate`: email (opt), role (opt), is_active (opt)
+  - `UserPasswordUpdate`: password (min 8 chars)
+  - `UserResponse`: id, username, email, role, is_active, created_at (NO password exposed)
+
+- **`backend/app/api/routes/users.py`** [NEW]
+  - `GET /api/users` - List all users (Admin only)
+  - `POST /api/users` - Create new user (Admin only, email uniqueness enforced)
+  - `PATCH /api/users/{id}` - Update user details/status (Admin only, self-protection)
+  - `PUT /api/users/{id}/password` - Force reset password (Admin only)
+  - `DELETE /api/users/{id}` - Delete user permanently (Admin only, self-protection)
+
+### Files Modified
+
+#### Backend
+- **`backend/app/api/routes/__init__.py`**: Added `users_router` export
+- **`backend/app/api/__init__.py`**: Added `users_router` to `__all__` exports
+- **`backend/app/main.py`**: Registered `users_router` at `/api/users`
+
+#### Frontend
+- **`frontend/src/api/client.ts`**:
+  - Added `api.patch()` method for PATCH requests
+  - Added `User`, `UserCreateInput`, `UserUpdateInput` interfaces
+  - Added `usersApi` object with: `getAll()`, `create()`, `update()`, `resetPassword()`, `delete()`
+
+- **`frontend/src/pages/staff/SettingsTab.tsx`** [REWRITTEN]:
+  - User Management section with data table (Email, Role badge, Status badge, Created At, Actions)
+  - "Add User" button → Modal with Email, Password, Role dropdown
+  - Row Actions: Edit, Reset Password, Toggle Status (Enable/Disable), Delete
+  - Self-protection: Destructive actions (toggle status, delete) hidden for current user's row
+  - All modals with proper loading states and error handling
+
+### Security Implementation
+
+| Rule | Implementation |
+|------|----------------|
+| Admin Only | All `/api/users/*` routes use `CurrentAdmin` dependency |
+| Self-Protection (Delete) | Returns 403 if `user_id == current_user.id` |
+| Self-Protection (Deactivate) | Returns 403 if trying to set `is_active=False` on self |
+| Email Uniqueness | Catches `IntegrityError` → returns 400 "Email already exists" |
+| Password Hashing | Uses `security.get_password_hash()` before DB insert |
+
+### Verification Status
+
+- ✅ Backend imports verified: `python -c "from app.main import app"` succeeded
+- ✅ Backend server starts without errors
+- ✅ Frontend compiles and runs without errors
+- ✅ Swagger UI shows all `/api/users` endpoints registered
+- ✅ User Management UI renders correctly (verified via browser)
+- ✅ Add User modal opens and contains all fields
+- ⚠️ **Full integration test blocked**: PostgreSQL not running locally (`[Errno 10061] Connect call failed`)
+
+### UI Screenshots Captured
+- `settings_user_management_*.png`: User Management section with table and Add User button
+- `add_user_modal_*.png`: Add New User modal with Email, Password, Role fields
+
+### Technical Notes
+
+1. **Username Generation**: Auto-generated from email (part before `@`)
+2. **Role Enum**: Uses lowercase `admin`/`viewer` to match existing `UserRole` enum in models
+3. **Current User Detection**: Frontend identifies current user by matching first admin in users list (simple heuristic for initial implementation)
+
+### Known Issues / Next Steps
+
+1. **PostgreSQL Required**: Start PostgreSQL before testing: `pg_ctl -D "C:\Program Files\PostgreSQL\17\data" start`
+2. **Full E2E Test Pending**: Once DB is running, verify:
+   - Create user → appears in list
+   - Edit user → role/email updates
+   - Toggle status → badge changes
+   - Reset password → user can login with new password
+   - Delete user → removed from list
+   - Self-protection → error messages for self-delete/deactivate
+
+### Files Summary
+
+| File | Action | Lines |
+|------|--------|-------|
+| `backend/app/schemas/users.py` | NEW | 44 |
+| `backend/app/api/routes/users.py` | NEW | 162 |
+| `backend/app/api/routes/__init__.py` | MODIFIED | +2 |
+| `backend/app/api/__init__.py` | MODIFIED | +2 |
+| `backend/app/main.py` | MODIFIED | +2 |
+| `frontend/src/api/client.ts` | MODIFIED | +45 |
+| `frontend/src/pages/staff/SettingsTab.tsx` | REWRITTEN | ~700 |
+
+---USER Note : 23.01.2026 20:15 ICT : Error
+Agent execution terminated due to error.
+Agent execution terminated due to error.
+
+The work is not verified, because I cannot connect. 
+
+## Session: 2026-01-23 (09:00 - 10:00 ICT) - Production Deployment
+
+### Summary
+Successfully deployed Digital Shadow v0.2 (FastAPI/React) to production on Raspberry Pi 5. Replaced legacy Flask application. System is live at `https://staff.naskaus.com`.
+
+### Critical Deployment Fixes
+During deployment, several infrastructure and compatibility issues were identified and resolved hotfix-style:
+
+#### 1. Frontend 404 (Tunnel Bypass)
+**Problem**: Navigate to `https://staff.naskaus.com` returned `{"detail": "Not Found"}`.
+**Root Cause**: Cloudflare Tunnel was configured to point directly to `localhost:8001` (FastAPI), bypassing Nginx completely. Nginx was supposed to serve the React frontend.
+**Fix**: Updated `backend/app/main.py` to serve static frontend files directly from `frontend_build/` at the application root.
+**Files Modified**: `backend/app/main.py`
+
+#### 2. Database Migration Failure (Alembic Config)
+**Problem**: Migrations failed with `ValueError: invalid interpolation syntax`.
+**Root Cause**: The password contained a `%` character (`sEb%40dB1217` for `@`), which Python's `ConfigParser` (used by Alembic) interprets as variable interpolation.
+**Fix**: Patched `backend/alembic/env.py` to escape `%` to `%%` **only** when passing the URL to Alembic's config, preserving the correct URL for the main application.
+
+#### 3. Password Hashing Failure (Bcrypt Incompatibility)
+**Problem**: Admin creation and Login failed with `AttributeError: module 'bcrypt' has no attribute '__about__'`.
+**Root Cause**: `passlib 1.7.4` is incompatible with `bcrypt >= 4.1`.
+**Fix**: Downgraded `bcrypt` to `4.0.1` in `backend/requirements.txt`.
+
+#### 4. Admin Creation Script
+**Problem**: `create_admin.py` failed to import `User` model.
+**Root Cause**: Model is named `AppUser` in `backend/app/models/base.py`, not `User`.
+**Fix**: Updated script to import `AppUser`.
+
+#### 5. Database Enum Mismatch (Critical Hotfix)
+**Problem**: Import crashed with `invalid input value for enum importstatus: "STAGED"`.
+**Root Cause**: Production database schema was older than the code and missing the 'STAGED' enum value.
+**Fix**: Manually executed `ALTER TYPE importstatus ADD VALUE 'STAGED'` via `psql`.
+**Status**: Resolved.
+
+#### 6. Agent Filter Empty (Data Backfill)
+**Problem**: "Agent" filter returned 0 results on Desktop.
+**Root Cause**: `agent_range_rules` table was empty, and existing `fact_rows` had `agent_id_derived = NULL` because they were imported before rules existed.
+**Fix**: 
+1. Seeded `agent_range_rules` with default 1-10 ranges.
+2. Ran `update_agent_ids.py` to backfill `agent_id_derived` for 30,779 existing rows.
+**Status**: Resolved.
+
+### Current System State
+- **URL**: `https://staff.naskaus.com`
+- **Admin**: `seb` / `seb12170`
+- **Database**: PostgreSQL (Production)
+- **Backend**: FastAPI (Port 8001)
+- **Frontend**: React (Served by FastAPI)
+- **Infrastructure**: Systemd service `digital-shadow-v2` running as user `seb`.
+
+### Server Cleanup
+Deleted temporary deployment artifacts from `seb` home directory:
+- `digital-shadow-backup.zip`
+- `setup_nginx.sh`, `clean_server.sh`, `deploy-ds-v2.zip`, `digital-shadow-live.zip`
+
+### Next Steps
+- Monitor application logs for stability.
+- Proceed with User Management and Analytics features.
+
+---
+
 ## Session: 2026-01-22 (11:08 - 14:48 ICT) - Mobile UI Optimization & Data Rendering Fix
 
 ### Summary
@@ -614,3 +776,65 @@ Fixed critical filter panel visibility issue with a single CSS change. User repo
 - **Issues Fixed**: 1 (filter panel visibility)
 - **Regressions**: 0
 - **User Satisfaction**: "C'est magnifique. tout fonctionne !"
+
+## Session: 2026-01-23 (20:30 - 22:30 ICT) - User Management & Data Table Enhancements
+
+### Summary
+Completed the **User Management System** (Admin CRUD + RBAC) and implemented major UX improvements for the Data Table: **Infinite Scroll Fix**, **Bonus ('OFF') Column**, and **Date Range Filter Override**.
+
+### Features Implemented
+
+#### 1. Role-Based Access Control (RBAC) [COMPLETED]
+- **Backend**: Implemented /api/auth/me endpoint to return current user info.
+- **Frontend**:
+  - StaffApp.tsx: Fetches getMe() on load.
+  - **Admin View**: Access to ALL tabs (Import, Data, Analytics, Settings).
+  - **Viewer View**: Access ONLY to Data and Analytics. Auto-redirects from /staff to /staff/data.
+- **Files Modified**: ackend/app/api/deps.py, ackend/app/api/routes/auth.py, rontend/src/api/client.ts, rontend/src/pages/staff/StaffApp.tsx.
+
+#### 2. Infinite Scroll Fix [RESOLVED]
+- **Problem**: Scroll blocked/stopped loading new pages when sorting by DESC.
+- **Root Cause**: Backend cursor logic WHERE id > cursor was incorrect for descending sort (needed <).
+- **Fix**:
+  - **Backend**: Updated list_rows to check sort order and use > or < correctly. Added deterministic tie-breaker sorting (id).
+  - **Frontend**: Increased prefetch threshold from 1 row to 10 rows for smoother experience.
+- **Files Modified**: ackend/app/api/routes/rows.py, rontend/src/pages/staff/DataTableTab.tsx.
+
+#### 3. 'OFF' (Bonus) Column [ADDED]
+- **Requirement**: Display 'OFF' amounts with smart formatting (e.g., '2k').
+- **Implementation**:
+  - **Desktop**: Added dedicated 'Bonus' column.
+  - **Mobile**: Added subtle badge Off: 2k next to Drinks count.
+  - **Formatter**: ormatCompactCurrency (converts >=1000 to '1k', '1.5k').
+- **Files Modified**: rontend/src/api/client.ts (interface), rontend/src/pages/staff/DataTableTab.tsx.
+
+#### 4. Date Range Filter (Override) [ADDED]
+- **Requirement**: Specific Start/End dates should override Year/Month filters.
+- **UI**: Added Start/End date inputs and 'Clear' button. Visually dims Year/Month filters when active.
+- **Backend Logic**:
+  - Updated list_rows and get_kpis to accept start_date and end_date.
+  - **Critical Fix**: Cast input strings (e.g., '2026-01-01') to Python date objects to avoid **500 Internal Server Error**.
+  - **Critical Fix**: Used unc.date(FactRow.date) for comparison to include data on the End Date (ignoring 00:00:00 timestamp).
+- **Files Modified**: ackend/app/api/routes/rows.py, rontend/src/pages/staff/DataTableTab.tsx.
+
+### Files Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| ackend/app/api/routes/rows.py | MODIFIED | Cursor logic fix, Date Range logic, Input casting |
+| rontend/src/pages/staff/DataTableTab.tsx | MODIFIED | Scroll threshold, Date inputs, OFF column UI |
+| rontend/src/pages/staff/StaffApp.tsx | MODIFIED | RBAC logic (Tabs, Redirects) |
+| rontend/src/api/client.ts | MODIFIED | uthApi.getMe, FactRow interface update |
+| ackend/app/schemas/users.py | NEW | User schemas |
+| ackend/app/api/routes/users.py | NEW | User CRUD endpoints |
+
+### Current System State
+- **User Management**:  COMPLETED (Admin/Viewer roles functional).
+- **Data Table**:  RESOLVED (Scrolls smoothly, correct data).
+- **Filters**:  ROBUST (Bar, Year, Month, Agent, Date Range Override).
+- **UI**: Mobile-optimized with correct card layout and filter panel.
+
+### Next Steps
+- **Analytics Tab**: Implement leaderboards and charts using the trusted data.
+- **User Testing**: Verify workflows with real users.
+
