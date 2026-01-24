@@ -265,3 +265,68 @@ export const usersApi = {
     delete: (userId: number) =>
         api.delete<void>(`/users/${userId}`),
 }
+
+// Analytics API
+export interface AgentPayroll {
+    agent_id: string
+    agent_name: string
+    bar: string
+    pool_active: number
+    pool_total: number
+    bonus_a_total: number
+    bonus_b_total: number
+    avg_daily_staff: number
+    days_counted: number
+    days_remaining: number
+    current_tier: number
+    next_tier_target: number | null
+    bonus_c_amount: number
+    total_estimate: number
+}
+
+export interface PayrollResponse {
+    agents: AgentPayroll[]
+    period_start: string
+    period_end: string
+}
+
+export interface LeaderboardEntry {
+    rank: number
+    id: string
+    name: string
+    bar: string | null
+    agent_id: number | null
+    profit: number
+    drinks: number
+    days: number
+    rentability: number
+}
+
+export interface LeaderboardResponse {
+    entries: LeaderboardEntry[]
+}
+
+export const analyticsApi = {
+    getPayroll: (startDate: string, endDate: string, bar?: string) =>
+        api.get<PayrollResponse>(`/analytics/payroll?start_date=${startDate}&end_date=${endDate}${bar ? `&bar=${bar}` : ''}`),
+
+    getLeaderboard: (
+        type: 'STAFF' | 'AGENT',
+        mode: 'ALL' | 'TOP10' | 'FLOP10',
+        sortBy: 'PROFIT' | 'DRINKS' | 'DAYS',
+        search?: string,
+        bar?: string,
+        year?: number,
+        month?: number
+    ) => {
+        const params = new URLSearchParams()
+        params.append('type', type)
+        params.append('mode', mode)
+        params.append('sort_by', sortBy)
+        if (search) params.append('search', search)
+        if (bar) params.append('bar', bar)
+        if (year) params.append('year', String(year))
+        if (month) params.append('month', String(month))
+        return api.get<LeaderboardResponse>(`/analytics/leaderboard?${params.toString()}`)
+    }
+}

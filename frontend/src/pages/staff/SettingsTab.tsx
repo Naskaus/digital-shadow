@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { settingsApi, DataSource, DataSourceInput, usersApi, User, UserCreateInput, UserUpdateInput } from '../../api/client'
+import { settingsApi, DataSource, DataSourceInput, usersApi, User, UserUpdateInput } from '../../api/client'
 
 interface DiscoveredSheet {
     id: string
@@ -84,17 +84,6 @@ export default function SettingsTab() {
         }
     }
 
-    // Get current user from token payload (simple decode)
-    const getCurrentUserFromToken = () => {
-        // Try to get current user by checking which user has the current session
-        // For now, we'll identify by checking via the users list and session
-        // We'll load users and match by comparing
-        const storedUser = localStorage.getItem('currentUserId')
-        if (storedUser) {
-            return parseInt(storedUser, 10)
-        }
-        return null
-    }
 
     useEffect(() => {
         loadSources()
@@ -518,16 +507,16 @@ export default function SettingsTab() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${user.role === 'admin'
-                                                        ? 'bg-purple-500/20 text-purple-300'
-                                                        : 'bg-blue-500/20 text-blue-300'
+                                                    ? 'bg-purple-500/20 text-purple-300'
+                                                    : 'bg-blue-500/20 text-blue-300'
                                                     }`}>
                                                     {user.role.toUpperCase()}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${user.is_active
-                                                        ? 'bg-green-500/20 text-green-300'
-                                                        : 'bg-red-500/20 text-red-300'
+                                                    ? 'bg-green-500/20 text-green-300'
+                                                    : 'bg-red-500/20 text-red-300'
                                                     }`}>
                                                     {user.is_active ? 'Active' : 'Inactive'}
                                                 </span>
