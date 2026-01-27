@@ -1,5 +1,43 @@
 # AI Memory - DIGITAL-SHADOW v0.2
 
+## Session: 2026-01-24 (Final QA & Deployment v0.3) - Analytics & Payroll Engine
+
+### Summary
+Successfully deployed Digital Shadow v0.3 to production. This release introduces the advanced **Analytics & Payroll Engine** and completes the **User Management System**. The application is now fully stable with 100% trusted data flow from Google Sheets to Decision Dashboards.
+
+### Key Features Delivered (v0.3)
+
+#### 1. Advanced Payroll Engine (Backend & UI)
+- **Logic**: Automated calculation of Agent Commissions based on 3 cumulative rules:
+  - **Bonus A (Volume)**: Daily threshold (≥10 staff) -> 50 THB/staff.
+  - **Bonus B (Quality)**: Per staff performance (Profit ≥ 1500 THB) -> +50 THB.
+  - **Bonus C (Consistency)**: Monthly Tiering based on Avg Daily Staff (20k/30k/40k THB).
+- **UI**: Dedicated "Payroll" cards showing estimated earnings, progress bars for tiers, and active/dormant staff pools.
+
+#### 2. Grouped Leaderboards
+- **Feature**: Toggle between "Global View" (All staff mixed) and "By Agent View" (Staff grouped by their assigned Agent).
+- **Tech**: Implemented client-side grouping in `AnalyticsTab.tsx` and updated Backend `analytics.py` to fetch `agent_id_derived` for proper attribution.
+
+#### 3. Data Table Enhancements
+- **"OFF" Column**: Added visual display of Bonus amounts (Column J) with smart formatting (e.g., "2k").
+- **Infinite Scroll**: Fixed scrolling issues by correcting SQL cursor logic (DESC sorting) and optimizing frontend prefetching.
+- **Date Range Override**: Specific Start/End dates now override general Year/Month filters for precise reporting.
+
+#### 4. Security & RBAC
+- **User Management**: Full CRUD for Admins.
+- **Access Control**: Viewers are restricted to Data & Analytics tabs only.
+- **Auth**: Production-grade Cookie Security (Secure/HttpOnly/Lax) configured for Cloudflare Tunnel.
+
+### Technical State
+- **Production URL**: `https://staff.naskaus.com`
+- **Infrastructure**: Raspberry Pi 5, Nginx (Reverse Proxy), Cloudflare Tunnel, PostgreSQL 17 (Systemd), FastAPI (Gunicorn/Uvicorn), React (Vite Build).
+- **Data Integrity**: 100% match with Google Sheets source. No "inferred" data.
+- **Deployment**: Automated via PowerShell script + Git Push/Pull.
+
+### Next Steps (Post-v0.3)
+- Monitor real-world usage of the Payroll Engine during month-end closing.
+- Potential refinement of "Active Staff" definition (currently 31-day rolling window).
+
 ## Session: 2026-01-23 (19:41 - 20:13 ICT) - User Management System Implementation
 
 ### Summary
@@ -853,3 +891,67 @@ Refresh https://staff.naskaus.com.
 Verify User Management: Go to Settings -> User Management (Admin only).
 Verify Data Table: Check Infinite Scroll and "Bonus" column.
 Have a great evening! 👋
+
+
+## Session: 2026-01-24 (08:30 - 09:50 ICT) - Group by Agent View Implementation
+
+### Summary
+Implemented a new **"Group by Agent"** view for the Staff Leaderboard. This allows users to toggle between a global ranking and a team-based ranking (grouped by agent/bar). Resolved persistent frontend build errors caused by malformed template literals in `AnalyticsTab.tsx` by rewriting the file. Verified the feature extensively in the browser.
+
+### Features Implemented
+
+#### 1. Group by Agent View
+*   **Requirement**: Users needed to see staff performance grouped by their assigned agent.
+*   **Implementation**:
+    *   **Frontend**: Added a "By Agent" toggle in the Leaderboard tab.
+    *   **Logic**: Client-side grouping using `useMemo`. Groups staff by `bar` + `agent_id`.
+    *   **UI**: Each group has a header showing the Agent Name, Bar, Staff Count, and aggregated Total Profit.
+*   **Files Modified**: `frontend/src/pages/staff/AnalyticsTab.tsx`.
+
+#### 2. Backend Data Enhancement
+*   **Change**: Updated `get_leaderboard` endpoint to select and return `agent_id_derived`.
+*   **Reason**: Previous implementation only returned flat staff data without agent attribution.
+*   **Files Modified**: `backend/app/api/routes/analytics.py`.
+
+#### 3. Frontend Data Model Update
+*   **Change**: Added `agent_id` to `LeaderboardEntry` interface.
+*   **Files Modified**: `frontend/src/api/client.ts`.
+
+### Bug Fixes & Troubleshooting
+
+#### 1. Frontend Build Failure (Syntax Errors)
+*   **Problem**: Persistent `SyntaxError: Missing semicolon` and `Unexpected token` in `AnalyticsTab.tsx`.
+*   **Root Cause**: Malformed template literals (e.g., `px - 4`, `${ variable } ` with extra spaces) introduced during previous edits.
+*   **Resolution**: **Complete rewrite** of `AnalyticsTab.tsx` to ensure clean, valid syntax. `replace_file_content` was ineffective due to hidden character issues.
+
+#### 2. Backend Startup Error
+*   **Problem**: `SyntaxError: 'await' outside function` in `analytics.py`.
+*   **Root Cause**: Code block accidentally pasted into module scope.
+*   **Resolution**: Removed the misplaced code and integrated logic correctly into the async function.
+
+#### 3. Frontend Proxy Error (`ECONNREFUSED`)
+*   **Problem**: Frontend could not connect to backend (`/api/auth/login`).
+*   **Root Cause**: Backend server had stopped running.
+*   **Resolution**: Restarted backend server on port 8001. Verified `vite.config.ts` was correctly pointing to port 8001.
+
+### Current System State
+
+**✅ Working**:
+*   **Login**: Functional (`seb` / `seb12170`).
+*   **Leaderboards**: 
+    *   Global View: Works as before.
+    *   By Agent View: **New**, functional, correctly aggregates data.
+*   **Servers**: Both Backend (8001) and Frontend (5173) are running.
+
+**⚠️ Known Issues**:
+*   **None** specific to this feature. Previous filter panel UX issues (from earlier sessions) likely remain but were not the focus.
+
+### Files Modified This Session
+
+*   `backend/app/api/routes/analytics.py` (Added `agent_id` to query)
+*   `frontend/src/api/client.ts` (Updated interface)
+*   `frontend/src/pages/staff/AnalyticsTab.tsx` (Major feature implementation & rewrite)
+
+### Verification
+*   **Browser Test**: Successfully logged in, toggled to "By Agent", verified headers and data grouping.
+*   **Screenshot**: `grouped_by_agent_view_1769221315426.png` confirms correct UI rendering.

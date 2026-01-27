@@ -26,10 +26,13 @@ class Settings(BaseSettings):
     
     # Google Sheets
     google_credentials_path: str = "./credentials.json"
-    
+
+    # AI Analyst (Claude API)
+    anthropic_api_key: str = ""
+
     # Environment
     environment: str = "development"
-    
+
     # Application
     app_title: str = "Digital Shadow"
     app_version: str = "0.2.0"

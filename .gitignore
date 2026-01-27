@@ -40,3 +40,10 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Deployment Artifacts
+deploy-ds-*.zip
+update_v*.sh
+deploy_stage*/
+cookies.txt
+.claude/

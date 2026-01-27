@@ -330,3 +330,35 @@ export const analyticsApi = {
         return api.get<LeaderboardResponse>(`/analytics/leaderboard?${params.toString()}`)
     }
 }
+
+// AI Analyst API
+export interface ChatMessage {
+    role: 'user' | 'assistant'
+    content: string
+    timestamp?: string
+}
+
+export interface AnalystQueryRequest {
+    message: string
+    context_filters?: {
+        bar?: string
+        year?: number
+        month?: number
+        agent?: string
+        staff?: string
+        date_start?: string
+        date_end?: string
+    }
+    conversation_history?: ChatMessage[]
+}
+
+export interface AnalystQueryResponse {
+    message: string
+    insights: Record<string, unknown> | null
+    timestamp: string
+}
+
+export const aiAnalystApi = {
+    query: (request: AnalystQueryRequest) =>
+        api.post<AnalystQueryResponse>('/ai-analyst/query', request),
+}

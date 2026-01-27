@@ -5,6 +5,7 @@ import ImportTab from './ImportTab'
 import DataTableTab from './DataTableTab'
 import AnalyticsTab from './AnalyticsTab'
 import SettingsTab from './SettingsTab'
+import AIAnalystTab from './AIAnalystTab'
 import { authApi, User } from '../../api/client'
 
 const allTabs = [
@@ -12,6 +13,7 @@ const allTabs = [
     { name: 'Data', path: 'data', roles: ['admin', 'viewer'] },
     { name: 'Analytics', path: 'analytics', roles: ['admin', 'viewer'] },
     { name: 'Settings', path: 'settings', roles: ['admin'] },
+    { name: 'AI Analyst', path: 'ai-analyst', roles: ['seb'] },
 ]
 
 export default function StaffApp() {
@@ -44,8 +46,15 @@ export default function StaffApp() {
 
     if (!user) return null
 
-    // Filter tabs based on role
-    const allowedTabs = allTabs.filter(tab => tab.roles.includes(user.role))
+    // Filter tabs based on role + special "seb" check
+    const allowedTabs = allTabs.filter(tab => {
+        // Special case: "seb" pseudo-role for Seb-only features
+        if (tab.roles.includes('seb')) {
+            return user.username === 'seb'
+        }
+        // Regular role-based filtering
+        return tab.roles.includes(user.role)
+    })
 
     // Determine default tab
     // Admin -> import (first tab)
@@ -81,6 +90,7 @@ export default function StaffApp() {
                     <Route path="data" element={<DataTableTab />} />
                     <Route path="analytics" element={<AnalyticsTab />} />
                     {user.role === 'admin' && <Route path="settings" element={<SettingsTab />} />}
+                    {user.username === 'seb' && <Route path="ai-analyst" element={<AIAnalystTab />} />}
                     <Route path="*" element={<Navigate to={defaultTab} replace />} />
                 </Routes>
             </div>

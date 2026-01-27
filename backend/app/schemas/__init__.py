@@ -187,3 +187,28 @@ class AgentRangeRuleResponse(AgentRangeRuleBase):
 
     class Config:
         from_attributes = True
+
+
+# --- AI Analyst Schemas ---
+
+class ChatRole(str, Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class ChatMessage(BaseModel):
+    role: ChatRole
+    content: str
+    timestamp: datetime | None = None
+
+
+class AnalystQueryRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+    context_filters: dict | None = None  # {bar?, year?, month?, agent?, staff?, date_start?, date_end?}
+    conversation_history: list[ChatMessage] | None = None
+
+
+class AnalystQueryResponse(BaseModel):
+    message: str
+    insights: dict | None = None  # Structured data: metrics, tables, charts
+    timestamp: datetime

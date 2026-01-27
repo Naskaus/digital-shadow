@@ -192,7 +192,7 @@ class AgentRangeRule(Base):
 class DataSource(Base):
     """Google Sheets data source configuration."""
     __tablename__ = "data_sources"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     year: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     sheet_id: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -201,3 +201,20 @@ class DataSource(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# --- AI Analyst Models ---
+
+class AIAnalystQuery(Base):
+    """Audit log for AI Analyst queries."""
+    __tablename__ = "ai_analyst_queries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), nullable=False)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    context_filters: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    response_text: Mapped[str] = mapped_column(Text, nullable=False)
+    model_used: Mapped[str] = mapped_column(String(50), nullable=False)
+    tokens_used: Mapped[int] = mapped_column(Integer, nullable=False)
+    response_time_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -73,7 +73,20 @@ async def get_current_admin(
     return current_user
 
 
+async def get_current_seb(
+    current_user: Annotated[AppUser, Depends(get_current_user)],
+) -> AppUser:
+    """Require Seb user (for experimental features)."""
+    if current_user.username != "seb":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: This feature is only available to Seb",
+        )
+    return current_user
+
+
 # Type aliases for dependency injection
 CurrentUser = Annotated[AppUser, Depends(get_current_user)]
 CurrentAdmin = Annotated[AppUser, Depends(get_current_admin)]
+CurrentSeb = Annotated[AppUser, Depends(get_current_seb)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]
