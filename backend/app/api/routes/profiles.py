@@ -1,7 +1,8 @@
 """Profile management API routes."""
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -350,6 +351,121 @@ async def delete_profile(
         raise HTTPException(status_code=404, detail="Profile not found")
 
     await db.delete(profile)
+    await db.commit()
+
+    return None
+
+
+# --- Photo Management Endpoints ---
+
+
+@router.put("/{profile_id}/photo")
+async def upload_photo(
+    profile_id: UUID,
+    file: UploadFile,
+    db: DbSession,
+    current_user: CurrentAdmin,
+):
+    """Upload profile photo (admin only, max 5MB, jpg/png/webp)."""
+    MAX_SIZE = 5 * 1024 * 1024  # 5MB
+    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+    # Validate content type
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type: {file.content_type}. Allowed: jpeg, png, webp",
+        )
+
+    # Read file bytes
+    contents = await file.read()
+
+    # Validate file size
+    if len(contents) > MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large: {len(contents)} bytes. Max: {MAX_SIZE} bytes (5MB)",
+        )
+
+    # Verify it's actually an image using magic numbers
+    def detect_image_type(data: bytes) -> str | None:
+        """Detect image type from magic numbers."""
+        if data.startswith(b'\xff\xd8\xff'):
+            return "jpeg"
+        elif data.startswith(b'\x89PNG\r\n\x1a\n'):
+            return "png"
+        elif data.startswith(b'RIFF') and data[8:12] == b'WEBP':
+            return "webp"
+        return None
+
+    img_type = detect_image_type(contents)
+    if img_type not in {"jpeg", "png", "webp"}:
+        raise HTTPException(
+            status_code=415,
+            detail="File is not a valid image (jpeg/png/webp)",
+        )
+
+    # Update profile
+    profile = await db.get(Profile, profile_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    profile.picture = contents
+    await db.commit()
+
+    return {
+        "message": "Photo uploaded successfully",
+        "size": len(contents),
+        "type": file.content_type,
+    }
+
+
+@router.get("/{profile_id}/photo")
+async def get_photo(
+    profile_id: UUID,
+    db: DbSession,
+):
+    """Download profile photo (public access, returns image with proper Content-Type)."""
+    profile = await db.get(Profile, profile_id)
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    if not profile.picture:
+        raise HTTPException(status_code=404, detail="Profile has no photo")
+
+    # Detect MIME type from image bytes using magic numbers
+    def detect_mime_type(data: bytes) -> str:
+        """Detect MIME type from magic numbers."""
+        if data.startswith(b'\xff\xd8\xff'):
+            return "image/jpeg"
+        elif data.startswith(b'\x89PNG\r\n\x1a\n'):
+            return "image/png"
+        elif data.startswith(b'RIFF') and data[8:12] == b'WEBP':
+            return "image/webp"
+        return "application/octet-stream"
+
+    mime_type = detect_mime_type(profile.picture)
+
+    return Response(content=profile.picture, media_type=mime_type)
+
+
+@router.delete("/{profile_id}/photo", status_code=204)
+async def delete_photo(
+    profile_id: UUID,
+    db: DbSession,
+    current_user: CurrentAdmin,
+):
+    """Remove profile photo (admin only)."""
+    profile = await db.get(Profile, profile_id)
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    if not profile.picture:
+        raise HTTPException(status_code=404, detail="Profile has no photo")
+
+    profile.picture = None
     await db.commit()
 
     return None
