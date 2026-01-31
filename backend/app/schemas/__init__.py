@@ -1,5 +1,5 @@
 """Pydantic schemas for API request/response."""
-from datetime import datetime, time
+from datetime import date, datetime, time
 from enum import Enum
 from uuid import UUID
 
@@ -250,3 +250,92 @@ class ContractTypeResponse(ContractTypeBase):
 
     class Config:
         from_attributes = True
+
+
+# --- Profile Schemas ---
+
+class ProfileBarResponse(BaseModel):
+    """Bar association for a profile."""
+    bar: str
+    agent_key: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProfileBase(BaseModel):
+    """Base profile fields for create/update."""
+    name: str
+    date_of_birth: date | None = None
+    phone: str | None = None
+    line_id: str | None = None
+    instagram: str | None = None
+    facebook: str | None = None
+    tiktok: str | None = None
+    notes: str | None = None
+
+
+class ProfileCreateStaff(ProfileBase):
+    """Create a new STAFF profile."""
+    staff_id: str  # Required, format "NNN - NICKNAME"
+    position: str | None = None  # "DANCER" or "PR"
+    size: str | None = None
+    weight: float | None = None
+    bars: list[str] = []  # List of bar names
+
+
+class ProfileCreateAgent(BaseModel):
+    """Create a new AGENT profile."""
+    bar: str  # Required - agents are bar-scoped
+    agent_id: int  # Required - agent number
+    name: str
+
+
+class ProfileUpdate(BaseModel):
+    """Update profile fields (all optional)."""
+    name: str | None = None
+    date_of_birth: date | None = None
+    phone: str | None = None
+    line_id: str | None = None
+    instagram: str | None = None
+    facebook: str | None = None
+    tiktok: str | None = None
+    notes: str | None = None
+    # Staff-only fields
+    position: str | None = None
+    size: str | None = None
+    weight: float | None = None
+
+
+class ProfileResponse(BaseModel):
+    """Full profile response."""
+    id: UUID
+    profile_type: str  # "STAFF" or "AGENT"
+    staff_id: str | None = None
+    agent_key: str | None = None
+    name: str
+    has_picture: bool = False
+    date_of_birth: date | None = None
+    phone: str | None = None
+    line_id: str | None = None
+    instagram: str | None = None
+    facebook: str | None = None
+    tiktok: str | None = None
+    notes: str | None = None
+    position: str | None = None
+    size: str | None = None
+    weight: float | None = None
+    created_at: datetime
+    updated_at: datetime
+    bars: list[ProfileBarResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class ProfileListResponse(BaseModel):
+    """Paginated profile list."""
+    items: list[ProfileResponse]
+    total: int
+    page: int
+    page_size: int
