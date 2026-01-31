@@ -11,7 +11,8 @@ Digital Shadow v0.5 — Staff performance management system for nightclub operat
 ### Backend
 ```bash
 cd backend
-..\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8001
+# Activate venv first (Windows: venv\Scripts\activate, Linux/Mac: source venv/bin/activate)
+uvicorn app.main:app --reload --port 8001
 ```
 
 ### Frontend
@@ -74,6 +75,7 @@ Digital-Shadow/
 - **TanStack ecosystem**: React Query for data fetching (5min stale time), React Table for virtualized tables, React Virtual for infinite scroll.
 - **API client**: Centralized in `api/client.ts` with typed request/response interfaces. Credentials included for cookie auth.
 - **Styling**: Tailwind CSS only (no component library). lucide-react for icons.
+- **AI Analyst**: Uses Anthropic Claude API for natural language analytics. Chat history stored in localStorage (client-side only). Rate limits: 10/min, 100/day per user. Audit log in `ai_analyst_queries` table.
 
 ### Database Schema (PostgreSQL 17)
 - **fact_rows**: Central business table. `business_key = sha256(bar|date|staff_id)` ensures uniqueness. `row_hash` enables idempotent upserts.
@@ -82,6 +84,7 @@ Digital-Shadow/
 - **agent_range_rules**: Per-bar staff ID prefix → agent mapping (e.g., 100-199 → Agent 1 in MANDARIN).
 - **data_sources**: Google Sheets configuration per year.
 - **ai_analyst_queries**: Audit log for all Claude API calls.
+- **contract_types**: Contract configurations (UUID PK, duration_months, penalty_early_termination, commission_rate). Foundation for future manual data entry feature (not yet implemented). Current Google Sheets import doesn't use this.
 - **app_users / refresh_tokens**: Authentication.
 
 ## Non-Negotiable Rules
@@ -101,7 +104,7 @@ These come from `Staff_Performance/context.md` (READ ONLY — never modify that 
 ## Session Governance
 
 - `Staff_Performance/context.md` → READ ONLY, never modify
-- `Staff_Performance/AI_Memory.md` → Append-only, add summary only when user says "fin de session"
+- `Staff_Performance/AI_Memory.md` → Append-only session summaries. ONLY append when user explicitly says "fin de session". DO NOT modify otherwise.
 - `Staff_Performance/PRD.md` → Source of truth for feature requirements
 
 ## Environment Notes
@@ -110,3 +113,30 @@ These come from `Staff_Performance/context.md` (READ ONLY — never modify that 
 - Production server: Raspberry Pi 5, SSH at seb@100.119.245.18, app at `/var/www/digital-shadow-v2`
 - Backend serves the built frontend from static files in production (single port 8001)
 - No automated test suite currently exists; testing is manual
+- Test scripts available: `backend/test_contracts_api.py` (validates contract CRUD endpoints)
+
+## Secrets Management
+
+**CRITICAL:** Never commit secrets to Git. See `SECURITY.md` and `backend/README.md` for details.
+
+**Protected Files (in .gitignore):**
+- `.env` - All environment files with actual secrets
+- `credentials.json` - Google Service Account credentials
+
+**Safe Template Files (can commit):**
+- `backend/.env.local.example` - Comprehensive template with setup instructions
+
+**Setup for Development:**
+```bash
+cd backend
+cp .env.local.example .env
+# Edit .env with actual credentials (see backend/README.md)
+```
+
+**Required Secrets:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET_KEY` - Random 32+ char string (generate with openssl/PowerShell)
+- `ANTHROPIC_API_KEY` - From console.anthropic.com (for AI Analyst)
+- `GOOGLE_CREDENTIALS_PATH` - Path to credentials.json (Google Sheets API)
+
+See `backend/.env.local.example` for detailed instructions on obtaining each secret.

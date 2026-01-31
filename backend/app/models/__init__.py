@@ -4,6 +4,8 @@ from app.models.base import (
     UserRole,
     ImportMode,
     ImportStatus,
+    ProfileType,
+    StaffPosition,
     AppUser,
     RefreshToken,
     ImportRun,
@@ -14,6 +16,8 @@ from app.models.base import (
     DataSource,
     AIAnalystQuery,
     ContractType,
+    Profile,
+    ProfileBar,
 )
 
 __all__ = [
@@ -21,6 +25,8 @@ __all__ = [
     "UserRole",
     "ImportMode",
     "ImportStatus",
+    "ProfileType",
+    "StaffPosition",
     "AppUser",
     "RefreshToken",
     "ImportRun",
@@ -31,4 +37,6 @@ __all__ = [
     "DataSource",
     "AIAnalystQuery",
     "ContractType",
+    "Profile",
+    "ProfileBar",
 ]

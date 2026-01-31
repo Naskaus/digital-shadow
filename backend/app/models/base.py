@@ -3,22 +3,27 @@ SQLAlchemy models for Digital Shadow.
 """
 import enum
 import uuid
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     JSON,
+    LargeBinary,
     Numeric,
     String,
     Text,
     Time,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -240,3 +245,81 @@ class ContractType(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# --- Profile Models ---
+
+class ProfileType(str, enum.Enum):
+    """Profile type: staff member or agent."""
+    STAFF = "STAFF"
+    AGENT = "AGENT"
+
+
+class StaffPosition(str, enum.Enum):
+    """Staff position type."""
+    DANCER = "DANCER"
+    PR = "PR"
+
+
+class Profile(Base):
+    """Staff member or agent profile."""
+    __tablename__ = "profiles"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_type: Mapped[ProfileType] = mapped_column(Enum(ProfileType), nullable=False)
+
+    # Identity (mutually exclusive based on profile_type)
+    staff_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)  # "046 - MAPRANG"
+    agent_key: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)  # "MANDARIN|5"
+
+    # Common fields
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    picture: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)  # BYTEA, <5MB enforced in API
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    line_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    instagram: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    facebook: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tiktok: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Staff-only fields (NULL for agents)
+    position: Mapped[StaffPosition | None] = mapped_column(Enum(StaffPosition), nullable=True)
+    size: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    weight: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    bars: Mapped[list["ProfileBar"]] = relationship(back_populates="profile", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint(
+            "(profile_type = 'STAFF' AND staff_id IS NOT NULL AND agent_key IS NULL) OR "
+            "(profile_type = 'AGENT' AND agent_key IS NOT NULL AND staff_id IS NULL)",
+            name="ck_profile_type_identity",
+        ),
+        CheckConstraint(
+            "(profile_type = 'AGENT' AND position IS NULL AND size IS NULL AND weight IS NULL) OR "
+            "(profile_type = 'STAFF')",
+            name="ck_agent_no_staff_fields",
+        ),
+        Index("ix_profiles_staff_id", "staff_id", postgresql_where=text("staff_id IS NOT NULL")),
+        Index("ix_profiles_agent_key", "agent_key", postgresql_where=text("agent_key IS NOT NULL")),
+    )
+
+
+class ProfileBar(Base):
+    """Junction table: which bars a profile is associated with."""
+    __tablename__ = "profile_bars"
+
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    bar: Mapped[str] = mapped_column(String(50), primary_key=True)  # "MANDARIN", "SHARK", etc.
+    agent_key: Mapped[str | None] = mapped_column(String(100), nullable=True)  # For STAFF: managing agent at this bar
+
+    # Relationships
+    profile: Mapped["Profile"] = relationship(back_populates="bars")
