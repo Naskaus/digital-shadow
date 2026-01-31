@@ -1,6 +1,7 @@
 """Pydantic schemas for API request/response."""
-from datetime import datetime
+from datetime import datetime, time
 from enum import Enum
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -212,3 +213,40 @@ class AnalystQueryResponse(BaseModel):
     message: str
     insights: dict | None = None  # Structured data: metrics, tables, charts
     timestamp: datetime
+
+
+# --- Contract Type Schemas ---
+
+class ContractTypeBase(BaseModel):
+    name: str
+    duration_days: int
+    late_cutoff_time: time
+    first_minute_penalty_thb: float
+    additional_minutes_penalty_thb: float
+    drink_price_thb: float
+    staff_commission_thb: float
+    is_active: bool = True
+
+
+class ContractTypeCreate(ContractTypeBase):
+    pass
+
+
+class ContractTypeUpdate(BaseModel):
+    name: str | None = None
+    duration_days: int | None = None
+    late_cutoff_time: time | None = None
+    first_minute_penalty_thb: float | None = None
+    additional_minutes_penalty_thb: float | None = None
+    drink_price_thb: float | None = None
+    staff_commission_thb: float | None = None
+    is_active: bool | None = None
+
+
+class ContractTypeResponse(ContractTypeBase):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

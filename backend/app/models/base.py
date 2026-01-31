@@ -2,7 +2,8 @@
 SQLAlchemy models for Digital Shadow.
 """
 import enum
-from datetime import datetime
+import uuid
+from datetime import datetime, time
 from typing import Any
 
 from sqlalchemy import (
@@ -15,6 +16,8 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
+    Uuid,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -218,3 +221,22 @@ class AIAnalystQuery(Base):
     tokens_used: Mapped[int] = mapped_column(Integer, nullable=False)
     response_time_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# --- Contract Models ---
+
+class ContractType(Base):
+    """Contract type configuration with penalty and commission rules."""
+    __tablename__ = "contract_types"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    late_cutoff_time: Mapped[time] = mapped_column(Time, nullable=False)
+    first_minute_penalty_thb: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    additional_minutes_penalty_thb: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    drink_price_thb: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    staff_commission_thb: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

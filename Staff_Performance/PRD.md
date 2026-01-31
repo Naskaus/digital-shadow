@@ -568,3 +568,50 @@ add/edit ranges
 validation no overlap
 
 Users management (admin/viewer)
+
+---
+
+## 1.13 AI Analyst Feature (v0.5 Addon)
+
+### Objectif
+Interface conversationnelle pour analyser les performances staff/agent via Claude API (Anthropic).
+
+### Fonctionnalités
+- **Chat naturel**: Questions en langage naturel sur les données
+- **Contexte filtres**: Bar, Year, Month appliqués aux requêtes
+- **Insights panel**: Métriques clés, bonus agents, tendances
+- **Historique conversation**: Stocké côté client (localStorage)
+
+### Accès
+- **Tous les utilisateurs authentifiés** (admin + viewer)
+- Tab visible dans navigation Staff Performance
+
+### Sécurité & Limites
+| Règle | Valeur |
+|-------|--------|
+| Rate limit (par minute) | 10 requêtes |
+| Rate limit (par jour) | 100 requêtes |
+| Données envoyées à Claude | Agrégées uniquement (pas de raw rows) |
+| Audit logging | Table `ai_analyst_queries` |
+
+### Configuration
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Endpoints Backend
+- `POST /api/ai-analyst/query` - Envoyer une question
+
+### UI Frontend
+- Tab "AI Analyst" (5ème tab)
+- Route: `/staff/ai-analyst`
+- Composant: `AIAnalystTab.tsx`
+
+### Exemples de questions
+- "Who are the top 5 performers this month?"
+- "Compare profit trends between bars"
+- "Which agents are on track for the 30K bonus?"
+
+### Documentation technique
+- Décisions d'implémentation: `ai-analyst-decision.md`
+- Guide de setup: `ai-analyst-setup.md`

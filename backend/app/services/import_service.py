@@ -14,7 +14,9 @@ import re
 from datetime import datetime
 from typing import Any
 
+import httplib2
 from google.oauth2 import service_account
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,7 +63,6 @@ class ErrorType:
     INVALID_NUMERIC = "INVALID_NUMERIC"
     EMPTY_ROW = "EMPTY_ROW"
 
-
 def _get_sheets_service():
     """Initialize Google Sheets API service."""
     settings = get_settings()
@@ -69,7 +70,10 @@ def _get_sheets_service():
         settings.google_credentials_path,
         scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
     )
-    return build("sheets", "v4", credentials=credentials)
+    # Increase timeout to 10 minutes (600s) to avoid read timeouts on large sheets
+    http = httplib2.Http(timeout=600)
+    authorized_http = AuthorizedHttp(credentials, http=http)
+    return build("sheets", "v4", http=authorized_http)
 
 
 def normalize_row(row: list[str]) -> dict[str, str | None]:

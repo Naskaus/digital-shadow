@@ -12,12 +12,14 @@ from app.models.base import (
     ImportError,
     AgentRangeRule,
     DataSource,
+    AIAnalystQuery,
+    ContractType,
 )
 
 __all__ = [
     "Base",
     "UserRole",
-    "ImportMode", 
+    "ImportMode",
     "ImportStatus",
     "AppUser",
     "RefreshToken",
@@ -27,4 +29,6 @@ __all__ = [
     "ImportError",
     "AgentRangeRule",
     "DataSource",
+    "AIAnalystQuery",
+    "ContractType",
 ]

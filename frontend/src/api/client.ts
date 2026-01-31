@@ -362,3 +362,53 @@ export const aiAnalystApi = {
     query: (request: AnalystQueryRequest) =>
         api.post<AnalystQueryResponse>('/ai-analyst/query', request),
 }
+
+// Contract Types API
+export interface ContractType {
+    id: string
+    name: string
+    duration_days: number
+    late_cutoff_time: string
+    first_minute_penalty_thb: number
+    additional_minutes_penalty_thb: number
+    drink_price_thb: number
+    staff_commission_thb: number
+    is_active: boolean
+    created_at: string
+    updated_at: string
+}
+
+export interface ContractTypeInput {
+    name: string
+    duration_days: number
+    late_cutoff_time: string
+    first_minute_penalty_thb: number
+    additional_minutes_penalty_thb: number
+    drink_price_thb: number
+    staff_commission_thb: number
+    is_active: boolean
+}
+
+export interface ContractTypeUpdateInput {
+    name?: string
+    duration_days?: number
+    late_cutoff_time?: string
+    first_minute_penalty_thb?: number
+    additional_minutes_penalty_thb?: number
+    drink_price_thb?: number
+    staff_commission_thb?: number
+    is_active?: boolean
+}
+
+export const contractsApi = {
+    getAll: () => api.get<ContractType[]>('/contracts'),
+
+    create: (data: ContractTypeInput) =>
+        api.post<ContractType>('/contracts', data),
+
+    update: (id: string, data: ContractTypeUpdateInput) =>
+        api.patch<ContractType>(`/contracts/${id}`, data),
+
+    delete: (id: string) =>
+        api.delete<void>(`/contracts/${id}`),
+}

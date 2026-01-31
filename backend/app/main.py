@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import ai_analyst_router, analytics_router, auth_router, import_router, rows_router, settings_router, users_router
+from app.api import ai_analyst_router, analytics_router, auth_router, contracts_router, import_router, rows_router, settings_router, users_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -46,6 +46,7 @@ app.include_router(settings_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(ai_analyst_router, prefix="/api")
+app.include_router(contracts_router, prefix="/api")
 
 
 @app.get("/api/health")

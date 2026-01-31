@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { settingsApi, DataSource, DataSourceInput, usersApi, User, UserUpdateInput } from '../../api/client'
+import { settingsApi, DataSource, DataSourceInput, usersApi, User, UserUpdateInput, contractsApi, ContractType, ContractTypeInput } from '../../api/client'
 
 interface DiscoveredSheet {
     id: string
@@ -7,7 +7,7 @@ interface DiscoveredSheet {
     tabs: string[]
 }
 
-type ModalType = 'none' | 'addUser' | 'editUser' | 'resetPassword' | 'toggleStatus' | 'deleteUser'
+type ModalType = 'none' | 'addUser' | 'editUser' | 'resetPassword' | 'toggleStatus' | 'deleteUser' | 'addContract' | 'editContract' | 'deleteContract'
 
 interface UserFormData {
     email: string
@@ -43,6 +43,22 @@ export default function SettingsTab() {
     })
     const [newPassword, setNewPassword] = useState('')
     const [actionLoading, setActionLoading] = useState(false)
+
+    // Contract Types State
+    const [contracts, setContracts] = useState<ContractType[]>([])
+    const [loadingContracts, setLoadingContracts] = useState(false)
+    const [contractModalType, setContractModalType] = useState<ModalType>('none')
+    const [selectedContract, setSelectedContract] = useState<ContractType | null>(null)
+    const [contractFormData, setContractFormData] = useState<ContractTypeInput>({
+        name: '',
+        duration_days: 1,
+        late_cutoff_time: '19:29:00',
+        first_minute_penalty_thb: 0.0,
+        additional_minutes_penalty_thb: 5.0,
+        drink_price_thb: 220.0,
+        staff_commission_thb: 100.0,
+        is_active: true,
+    })
 
     const loadSources = async () => {
         try {
@@ -84,10 +100,25 @@ export default function SettingsTab() {
         }
     }
 
+    const loadContracts = async () => {
+        try {
+            setLoadingContracts(true)
+            const data = await contractsApi.getAll()
+            setContracts(data || [])
+        } catch (err) {
+            if (err instanceof Error && !err.message.includes('Admin')) {
+                setError(err instanceof Error ? err.message : 'Failed to load contract types')
+            }
+        } finally {
+            setLoadingContracts(false)
+        }
+    }
+
 
     useEffect(() => {
         loadSources()
         loadUsers()
+        loadContracts()
     }, [])
 
     // Set current user once users are loaded
@@ -303,6 +334,104 @@ export default function SettingsTab() {
         })
     }
 
+    // Contract Type Management Functions
+    const openAddContract = () => {
+        setContractFormData({
+            name: '',
+            duration_days: 1,
+            late_cutoff_time: '19:29:00',
+            first_minute_penalty_thb: 0.0,
+            additional_minutes_penalty_thb: 5.0,
+            drink_price_thb: 220.0,
+            staff_commission_thb: 100.0,
+            is_active: true,
+        })
+        setContractModalType('addContract')
+    }
+
+    const openEditContract = (contract: ContractType) => {
+        setSelectedContract(contract)
+        setContractFormData({
+            name: contract.name,
+            duration_days: contract.duration_days,
+            late_cutoff_time: contract.late_cutoff_time,
+            first_minute_penalty_thb: contract.first_minute_penalty_thb,
+            additional_minutes_penalty_thb: contract.additional_minutes_penalty_thb,
+            drink_price_thb: contract.drink_price_thb,
+            staff_commission_thb: contract.staff_commission_thb,
+            is_active: contract.is_active,
+        })
+        setContractModalType('editContract')
+    }
+
+    const openDeleteContract = (contract: ContractType) => {
+        setSelectedContract(contract)
+        setContractModalType('deleteContract')
+    }
+
+    const closeContractModal = () => {
+        setContractModalType('none')
+        setSelectedContract(null)
+        setContractFormData({
+            name: '',
+            duration_days: 1,
+            late_cutoff_time: '19:29:00',
+            first_minute_penalty_thb: 0.0,
+            additional_minutes_penalty_thb: 5.0,
+            drink_price_thb: 220.0,
+            staff_commission_thb: 100.0,
+            is_active: true,
+        })
+    }
+
+    const handleCreateContract = async () => {
+        if (!contractFormData.name) {
+            setError('Contract name is required')
+            return
+        }
+
+        try {
+            setActionLoading(true)
+            await contractsApi.create(contractFormData)
+            closeContractModal()
+            loadContracts()
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create contract type')
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleUpdateContract = async () => {
+        if (!selectedContract) return
+
+        try {
+            setActionLoading(true)
+            await contractsApi.update(selectedContract.id, contractFormData)
+            closeContractModal()
+            loadContracts()
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to update contract type')
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleDeleteContract = async () => {
+        if (!selectedContract) return
+
+        try {
+            setActionLoading(true)
+            await contractsApi.delete(selectedContract.id)
+            closeContractModal()
+            loadContracts()
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to delete contract type')
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
     const selectedSheet = discoveredSheets.find(s => s.id === formData.sheet_id)
 
     if (loading) {
@@ -457,6 +586,89 @@ export default function SettingsTab() {
                         <button className="px-4 py-2 bg-dark-700 text-white text-sm rounded-lg hover:bg-dark-600 transition-colors">
                             Manage Rules
                         </button>
+                    </div>
+                </section>
+
+                {/* Contract Types */}
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Contract Types</h3>
+                        <button
+                            onClick={openAddContract}
+                            className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-500 transition-colors flex items-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add New Contract
+                        </button>
+                    </div>
+                    <div className="bg-dark-900/50 rounded-xl p-6">
+                        {loadingContracts ? (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+                            </div>
+                        ) : contracts.length === 0 ? (
+                            <div className="text-center text-dark-500 py-8">
+                                No contract types configured
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {contracts.map((contract) => (
+                                    <div key={contract.id} className="bg-dark-800 rounded-lg p-4 border border-dark-700">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="text-white font-bold text-lg">{contract.name}</h3>
+                                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${contract.is_active
+                                                ? 'bg-green-500/20 text-green-300'
+                                                : 'bg-red-500/20 text-red-300'
+                                                }`}>
+                                                {contract.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-dark-400">Duration:</span>
+                                                <span className="text-white">{contract.duration_days} day(s)</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-dark-400">Late Cutoff:</span>
+                                                <span className="text-white">{contract.late_cutoff_time.substring(0, 5)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-dark-400">First Min Penalty:</span>
+                                                <span className="text-white">{contract.first_minute_penalty_thb} THB</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-dark-400">Additional Min Penalty:</span>
+                                                <span className="text-white">{contract.additional_minutes_penalty_thb} THB/min</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-dark-400">Drink Price:</span>
+                                                <span className="text-white">{contract.drink_price_thb} THB</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-dark-400">Staff Commission:</span>
+                                                <span className="text-white">{contract.staff_commission_thb} THB</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 mt-4 pt-4 border-t border-dark-700">
+                                            <button
+                                                onClick={() => openEditContract(contract)}
+                                                className="flex-1 px-3 py-2 bg-dark-700 text-white text-sm rounded-lg hover:bg-dark-600 transition-colors"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => openDeleteContract(contract)}
+                                                className="flex-1 px-3 py-2 bg-red-600/20 text-red-400 text-sm rounded-lg hover:bg-red-600/30 transition-colors"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </section>
 
@@ -777,6 +989,262 @@ export default function SettingsTab() {
                                 className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {actionLoading ? 'Deleting...' : 'Delete User'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Contract Type Modal */}
+            {contractModalType === 'addContract' && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-dark-800 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-lg font-medium text-white mb-4">Add New Contract Type</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-dark-300 mb-2">Name</label>
+                                <input
+                                    type="text"
+                                    value={contractFormData.name}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, name: e.target.value })}
+                                    placeholder="e.g., 1-Day, 10-days, 1-Month"
+                                    className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Duration (days)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={contractFormData.duration_days}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, duration_days: parseInt(e.target.value) || 1 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Late Cutoff Time</label>
+                                    <input
+                                        type="time"
+                                        value={contractFormData.late_cutoff_time}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, late_cutoff_time: e.target.value + ':00' })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">First Min Penalty (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.first_minute_penalty_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, first_minute_penalty_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Additional Min Penalty (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.additional_minutes_penalty_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, additional_minutes_penalty_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Drink Price (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.drink_price_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, drink_price_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Staff Commission (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.staff_commission_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, staff_commission_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="contract_is_active"
+                                    checked={contractFormData.is_active}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, is_active: e.target.checked })}
+                                    className="w-4 h-4"
+                                />
+                                <label htmlFor="contract_is_active" className="text-white">Active</label>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={closeContractModal}
+                                className="flex-1 px-4 py-3 bg-dark-700 text-white rounded-lg hover:bg-dark-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCreateContract}
+                                disabled={actionLoading || !contractFormData.name}
+                                className="flex-1 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {actionLoading ? 'Creating...' : 'Create Contract'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Contract Type Modal */}
+            {contractModalType === 'editContract' && selectedContract && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-dark-800 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-lg font-medium text-white mb-4">Edit Contract Type</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-dark-300 mb-2">Name</label>
+                                <input
+                                    type="text"
+                                    value={contractFormData.name}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, name: e.target.value })}
+                                    className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Duration (days)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={contractFormData.duration_days}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, duration_days: parseInt(e.target.value) || 1 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Late Cutoff Time</label>
+                                    <input
+                                        type="time"
+                                        value={contractFormData.late_cutoff_time.substring(0, 5)}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, late_cutoff_time: e.target.value + ':00' })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">First Min Penalty (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.first_minute_penalty_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, first_minute_penalty_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Additional Min Penalty (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.additional_minutes_penalty_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, additional_minutes_penalty_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Drink Price (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.drink_price_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, drink_price_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Staff Commission (THB)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={contractFormData.staff_commission_thb}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, staff_commission_thb: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="contract_is_active_edit"
+                                    checked={contractFormData.is_active}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, is_active: e.target.checked })}
+                                    className="w-4 h-4"
+                                />
+                                <label htmlFor="contract_is_active_edit" className="text-white">Active</label>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={closeContractModal}
+                                className="flex-1 px-4 py-3 bg-dark-700 text-white rounded-lg hover:bg-dark-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleUpdateContract}
+                                disabled={actionLoading || !contractFormData.name}
+                                className="flex-1 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {actionLoading ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Contract Type Confirmation Modal */}
+            {contractModalType === 'deleteContract' && selectedContract && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-dark-800 rounded-xl p-6 w-full max-w-md">
+                        <h3 className="text-lg font-medium text-white mb-4">Delete Contract Type</h3>
+                        <p className="text-dark-400 mb-6">
+                            Are you sure you want to <span className="text-red-400">permanently delete</span> the <span className="text-white">{selectedContract.name}</span> contract type? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={closeContractModal}
+                                className="flex-1 px-4 py-3 bg-dark-700 text-white rounded-lg hover:bg-dark-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteContract}
+                                disabled={actionLoading}
+                                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {actionLoading ? 'Deleting...' : 'Delete Contract'}
                             </button>
                         </div>
                     </div>

@@ -1,6 +1,6 @@
 # Digital Shadow - Deployment Guide
 
-> **Current Production Version**: v0.4 (Analytics Update)  
+> **Current Production Version**: v0.3 (Stable Recovery)  
 > **Production URL**: https://staff.naskaus.com  
 > **Last Updated**: 2026-01-27
 
@@ -29,8 +29,8 @@
 | **Server** | Raspberry Pi 5 |
 | **OS** | Linux (Debian-based) |
 | **SSH Access** | `seb@100.119.245.18` |
-| **App Directory** | `/var/www/digital-shadow-v2` |
-| **Service Name** | `digital-shadow-v2` (Systemd) |
+| **App Directory** | `/var/www/digital-shadow` |
+| **Service Name** | `digital-shadow` (Systemd) |
 | **Web Server** | Nginx (Reverse Proxy) |
 | **Tunnel** | Cloudflare Tunnel |
 | **Database** | PostgreSQL 17 |
