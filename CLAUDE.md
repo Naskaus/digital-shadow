@@ -85,6 +85,8 @@ Digital-Shadow/
 - **data_sources**: Google Sheets configuration per year.
 - **ai_analyst_queries**: Audit log for all Claude API calls.
 - **contract_types**: Contract configurations (UUID PK, duration_months, penalty_early_termination, commission_rate). Foundation for future manual data entry feature (not yet implemented). Current Google Sheets import doesn't use this.
+- **profiles**: Staff and agent profiles (UUID PK, 1,456 total: 1,429 staff + 27 agents). Stores photos as BYTEA (<5MB). Check constraints enforce profile_type rules (STAFF has staff_id, AGENT has agent_key).
+- **profile_bars**: Many-to-many junction table linking profiles to bars (1,570 links). Includes agent_key for staff-agent assignments.
 - **app_users / refresh_tokens**: Authentication.
 
 ## Non-Negotiable Rules

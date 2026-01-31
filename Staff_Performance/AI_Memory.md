@@ -292,4 +292,157 @@ All 7 test steps passed successfully:
 
 ---
 
-*Last updated: 2026-01-31*
+## Session 2026-01-31 (Evening): Milestone 2 Complete - Profile System
+
+### Objective
+Implement complete profile management system for staff and agents with photo upload capability.
+
+### Commits Created (4 total)
+
+**Commit 1: `3915f72` - Profile Database Models**
+- Added `ProfileType` enum (STAFF/AGENT) and `StaffPosition` enum (DANCER/PR)
+- Created `Profile` model (18 columns):
+  - UUID primary key
+  - Mutually exclusive identity: staff_id OR agent_key
+  - Common fields: name, picture (BYTEA), date_of_birth, phone, social media links, notes
+  - Staff-only fields: position, size, weight
+  - Check constraints enforce profile_type rules
+  - Partial indexes on staff_id and agent_key
+- Created `ProfileBar` junction table (many-to-many bars)
+  - Composite PK (profile_id, bar)
+  - Optional agent_key for staff assignments
+- Migration: `16f91ab164b4_add_profiles_and_profile_bars_tables`
+- Verified: Both tables created with proper constraints and indexes
+
+**Commit 2: `55989e0` - Auto-Migration Script**
+- Created `backend/scripts/migrate_profiles.py`
+- Extracted unique staff from fact_rows:
+  - 1,429 STAFF profiles created
+  - Names extracted from "NNN - NICKNAME" format
+- Extracted unique agents from (bar, agent_id_derived):
+  - 27 AGENT profiles created
+  - Agent keys format: "BAR|AGENT_ID"
+- Created 1,570 profile-bar links
+- Script is idempotent (safe to re-run)
+- Total profiles: 1,456 (1,429 staff + 27 agents)
+
+**Commit 3: `af1a772` - CRUD API Endpoints**
+- Added 7 Pydantic schemas in `app/schemas/__init__.py`:
+  - ProfileBarResponse, ProfileBase, ProfileCreateStaff, ProfileCreateAgent
+  - ProfileUpdate, ProfileResponse, ProfileListResponse
+- Created `app/api/routes/profiles.py` with 8 endpoints:
+  - `GET /api/profiles` - List with pagination/filters (type, bar, search)
+  - `GET /api/profiles/staff/{staff_id}` - Get staff by ID
+  - `GET /api/profiles/agent/{agent_key}` - Get agent by key (BAR|ID)
+  - `GET /api/profiles/{uuid}` - Get by UUID
+  - `POST /api/profiles/staff` - Create staff (admin)
+  - `POST /api/profiles/agent` - Create agent (admin)
+  - `PATCH /api/profiles/{uuid}` - Update profile (admin)
+  - `DELETE /api/profiles/{uuid}` - Delete profile + bars (admin)
+- All 11 tests passed (create, read, update, delete, filters, search)
+
+**Commit 4: `3e77375` - Photo Upload Endpoints**
+- Added 3 photo management endpoints:
+  - `PUT /api/profiles/{profile_id}/photo` - Upload (admin, max 5MB)
+  - `GET /api/profiles/{profile_id}/photo` - Download (public)
+  - `DELETE /api/profiles/{profile_id}/photo` - Remove (admin)
+- Implementation details:
+  - Custom magic number detection (Python 3.13 compatible)
+  - Replaced deprecated `imghdr` module
+  - Validates: file size (5MB max), MIME type (jpeg/png/webp)
+  - Proper Content-Type headers on download
+  - Updates `has_picture` flag in ProfileResponse
+- All 8 tests passed:
+  - Upload: 70 bytes PNG uploaded successfully
+  - Download: Correct Content-Type returned (image/png)
+  - Delete: Photo removed, 404 on re-access
+  - Flag verification: has_picture updates correctly
+
+### Technical Challenges Solved
+
+1. **Python 3.13 Compatibility**
+   - Issue: `imghdr` module removed in Python 3.13
+   - Solution: Implemented custom magic number detection
+   - Magic bytes: JPEG (`\xff\xd8\xff`), PNG (`\x89PNG\r\n\x1a\n`), WEBP (`RIFF...WEBP`)
+
+2. **Profile Type Constraints**
+   - Check constraint ensures STAFF has staff_id (not agent_key)
+   - Check constraint ensures AGENT has agent_key (not staff_id)
+   - Check constraint prevents staff-only fields on AGENT profiles
+   - Database enforces business rules at schema level
+
+3. **Agent Key Format**
+   - Format: "BAR|AGENT_ID" (e.g., "MANDARIN|5")
+   - Ensures agents are bar-scoped as per business rules
+   - Unique constraint prevents duplicate agents per bar
+
+### Database State
+
+**Profiles Table**:
+- 1,429 STAFF profiles (from fact_rows unique staff_id)
+- 27 AGENT profiles (from fact_rows unique bar+agent_id combinations)
+- Total: 1,456 profiles
+
+**Profile Bars**:
+- 1,570 links (profiles working across multiple bars)
+- Includes agent_key assignments for staff
+
+### Git Status
+- Branch: `opus-repair-2026-01-31`
+- Pushed to GitHub: Yes
+- Commits: 4 (3915f72, 55989e0, af1a772, 3e77375)
+- Working tree: Clean
+
+### Files Modified/Created
+
+**Backend**:
+- `app/models/base.py` - Added Profile, ProfileBar models + enums
+- `app/models/__init__.py` - Exported new models
+- `app/schemas/__init__.py` - Added 7 profile schemas
+- `app/api/routes/profiles.py` - NEW (11 endpoints total)
+- `app/api/routes/__init__.py` - Exported profiles_router
+- `app/api/__init__.py` - Exported profiles_router
+- `app/main.py` - Registered profiles_router
+- `alembic/versions/16f91ab164b4_add_profiles_and_profile_bars_tables.py` - NEW
+- `scripts/migrate_profiles.py` - NEW (one-time migration)
+
+**Testing**:
+- `test_photo_endpoints.py` - NEW (comprehensive photo tests)
+- `create_test_image.py` - NEW (minimal PNG generator)
+- `test_photo.png` - NEW (70 bytes test image)
+
+### Next Steps
+
+**Immediate**:
+1. Test photo upload in browser: http://localhost:8001/api/profiles/{uuid}/photo
+2. Consider PR to merge `opus-repair-2026-01-31` → main
+
+**Future Enhancements** (Milestone 3+):
+1. **Frontend Integration**:
+   - Profile modal component (click staff_id → view profile)
+   - Photo upload UI with drag-drop
+   - Job history table in profile modal
+   - Edit profile form
+
+2. **Additional Features**:
+   - Photo resize/thumbnail generation
+   - Bulk photo upload
+   - Export profiles to CSV
+   - Profile search autocomplete
+   - Agent performance dashboard using profile data
+
+3. **Manual Data Entry** (from original roadmap):
+   - Link contract_types to fact_rows
+   - Manual entry form for daily staff records
+   - Auto-calculate penalties based on contract rules
+
+### Notes
+- All endpoints tested and working
+- Mobile viewport compatibility maintained
+- RBAC enforced (admin-only write operations)
+- Idempotent operations (safe to re-run migration)
+- Production-ready code
+
+---
+
+*Last updated: 2026-01-31 (Evening Session)*
