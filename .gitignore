@@ -9,9 +9,14 @@ env/
 venv/
 .venv/
 ENV/
+# Environment files (secrets)
 .env
+.env.local
+.env.production
+.env.development
 .env.*
-!.env.example
+# Allow only the local example template (safe to commit)
+!.env.local.example
 *.egg-info/
 dist/
 build/
