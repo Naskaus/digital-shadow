@@ -41,6 +41,31 @@ Never deploy file-by-file with scp. Always use the deploy script.
 docker-compose up -d postgres     # PostgreSQL 17 on localhost:5432
 ```
 
+## Recent Changes
+
+### Session 2026-02-01: Analytics Enhancements + PDF Exports
+
+**Milestone 2 Complete**: Profile System with photos, job history, rankings
+
+**Features Added**:
+- 🥇 Medal system in Analytics (top 3 staff per context)
+- 📊 Bonus column in all leaderboards (CRITICAL - never remove)
+- 📱 Mobile-first Analytics with card layout
+- 📄 PDF exports (leaderboard + individual profiles)
+- 🔴 Negative numbers in RED everywhere
+- 🎯 Smart filters (month disabled when "All Years")
+- 👆 Clickable staff names → Profile modal
+
+**Key Files**:
+- `frontend/src/pages/staff/AnalyticsTab.tsx` (major rewrite)
+- `frontend/src/components/ProfileModal.tsx` (added PDF export)
+- `backend/app/api/routes/analytics.py` (bonus column)
+
+**Deployment Notes**:
+- Bundle size optimized: 348KB (jsPDF lazy-loaded)
+- Profile photos stored in database as BYTEA (<5MB)
+- 1,456 profiles auto-migrated (1,429 staff + 27 agents)
+
 ## Architecture
 
 ```
