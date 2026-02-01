@@ -90,6 +90,15 @@ export interface FactRow {
     off: number | null
     total: number | null
     agent_mismatch: boolean
+    contract: string | null
+    start_time: string | null
+    late: number | null
+    cut_late: number | null
+    cut_drink: number | null
+    cut_other: number | null
+    sale: number | null
+    staff_num_prefix: number | null
+    agent_id_derived: number | null
 }
 
 export interface RowsKPI {
@@ -298,6 +307,8 @@ export interface LeaderboardEntry {
     agent_id: number | null
     profit: number
     drinks: number
+    // CRITICAL: BONUS must NEVER be removed - core metric alongside Profit, Drinks, Days
+    bonus: number
     days: number
     rentability: number
 }
@@ -411,4 +422,102 @@ export const contractsApi = {
 
     delete: (id: string) =>
         api.delete<void>(`/contracts/${id}`),
+}
+
+// Profiles API
+export interface ProfileBar {
+    bar: string
+    agent_key: string | null
+}
+
+export interface Profile {
+    id: string
+    profile_type: 'STAFF' | 'AGENT'
+    staff_id: string | null
+    agent_key: string | null
+    name: string
+    has_picture: boolean
+    date_of_birth: string | null
+    phone: string | null
+    line_id: string | null
+    instagram: string | null
+    facebook: string | null
+    tiktok: string | null
+    notes: string | null
+    position: 'DANCER' | 'PR' | null
+    size: string | null
+    weight: number | null
+    created_at: string
+    updated_at: string
+    bars: ProfileBar[]
+}
+
+export interface StaffHistoryStats {
+    days_worked: number
+    total_profit: number
+    avg_profit: number
+    total_drinks: number
+    avg_drinks: number
+    total_bonus: number
+    avg_bonus: number
+}
+
+export interface StaffHistoryResponse {
+    items: FactRow[]
+    total: number
+    page: number
+    page_size: number
+    stats: StaffHistoryStats
+}
+
+export interface StaffHistoryFilters {
+    bar?: string[]
+    year?: number
+    month?: number
+    page?: number
+    page_size?: number
+}
+
+export const profilesApi = {
+    getByStaffId: (staffId: string) =>
+        api.get<Profile>(`/profiles/staff/${encodeURIComponent(staffId)}`),
+
+    getByAgentKey: (agentKey: string) =>
+        api.get<Profile>(`/profiles/agent/${encodeURIComponent(agentKey)}`),
+
+    getById: (id: string) =>
+        api.get<Profile>(`/profiles/${id}`),
+
+    getStaffHistory: (staffId: string, filters?: StaffHistoryFilters) => {
+        const params = new URLSearchParams()
+        if (filters?.bar) filters.bar.forEach(b => params.append('bar', b))
+        if (filters?.year) params.append('year', String(filters.year))
+        if (filters?.month) params.append('month', String(filters.month))
+        if (filters?.page) params.append('page', String(filters.page))
+        if (filters?.page_size) params.append('page_size', String(filters.page_size))
+        return api.get<StaffHistoryResponse>(
+            `/profiles/staff/${encodeURIComponent(staffId)}/history?${params.toString()}`
+        )
+    },
+
+    getPhoto: (profileId: string): string =>
+        `${API_BASE}/profiles/${profileId}/photo`,
+
+    uploadPhoto: async (profileId: string, file: File) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        const response = await fetch(`${API_BASE}/profiles/${profileId}/photo`, {
+            method: 'PUT',
+            credentials: 'include',
+            body: formData,
+        })
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Upload failed' }))
+            throw new Error(error.detail)
+        }
+        return response.json()
+    },
+
+    deletePhoto: (profileId: string) =>
+        api.delete<void>(`/profiles/${profileId}/photo`),
 }

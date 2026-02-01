@@ -7,8 +7,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentAdmin, CurrentUser, DbSession
-from app.models import AppUser, Profile, ProfileBar, ProfileType, StaffPosition
+from app.models import AppUser, FactRow, Profile, ProfileBar, ProfileType, StaffPosition
 from app.schemas import (
+    FactRowResponse,
     ProfileBarResponse,
     ProfileCreateAgent,
     ProfileCreateStaff,
@@ -100,6 +101,123 @@ async def list_profiles(
         page=page,
         page_size=page_size,
     )
+
+
+# NOTE: Job history endpoint MUST come before get_staff_profile
+# because FastAPI matches routes in order, and :path is greedy
+@router.get("/staff/{staff_id:path}/history")
+async def get_staff_history(
+    staff_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+    bar: list[str] | None = Query(None),
+    year: int | None = Query(None),
+    month: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    """Get job history for a staff member (paginated, filterable)."""
+    # Build base query
+    query = select(FactRow).where(FactRow.staff_id == staff_id)
+    count_query = select(func.count()).select_from(FactRow).where(FactRow.staff_id == staff_id)
+
+    # Apply filters
+    if bar:
+        query = query.where(FactRow.bar.in_(bar))
+        count_query = count_query.where(FactRow.bar.in_(bar))
+
+    if year is not None:
+        query = query.where(func.extract("year", FactRow.date) == year)
+        count_query = count_query.where(func.extract("year", FactRow.date) == year)
+
+    if month is not None:
+        query = query.where(func.extract("month", FactRow.date) == month)
+        count_query = count_query.where(func.extract("month", FactRow.date) == month)
+
+    # Get total count
+    total = await db.scalar(count_query) or 0
+
+    # Calculate statistics WITH SAME FILTERS as history query
+    stats_query = select(
+        func.count(FactRow.id).label('days_worked'),
+        func.sum(FactRow.profit).label('total_profit'),
+        func.avg(FactRow.profit).label('avg_profit'),
+        func.sum(FactRow.drinks).label('total_drinks'),
+        func.avg(FactRow.drinks).label('avg_drinks'),
+        func.sum(FactRow.off).label('total_bonus'),
+        func.avg(FactRow.off).label('avg_bonus'),
+    ).where(FactRow.staff_id == staff_id)
+
+    # Apply SAME filters as history query
+    if bar:
+        stats_query = stats_query.where(FactRow.bar.in_(bar))
+
+    if year is not None:
+        stats_query = stats_query.where(func.extract("year", FactRow.date) == year)
+
+    if month is not None:
+        stats_query = stats_query.where(func.extract("month", FactRow.date) == month)
+
+    stats_result = await db.execute(stats_query)
+    stats_row = stats_result.one()
+
+    stats = {
+        "days_worked": int(stats_row.days_worked or 0),
+        "total_profit": float(stats_row.total_profit or 0),
+        "avg_profit": float(stats_row.avg_profit or 0),
+        "total_drinks": int(stats_row.total_drinks or 0),
+        "avg_drinks": float(stats_row.avg_drinks or 0),
+        "total_bonus": float(stats_row.total_bonus or 0),
+        "avg_bonus": float(stats_row.avg_bonus or 0),
+    }
+
+    # Apply ordering and pagination
+    query = (
+        query.order_by(FactRow.date.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    # Convert to response format
+    items = [
+        FactRowResponse(
+            id=row.id,
+            business_key=row.business_key,
+            source_year=row.source_year,
+            bar=row.bar,
+            date=row.date,
+            agent_label=row.agent_label,
+            staff_id=row.staff_id,
+            position=row.position,
+            salary=float(row.salary) if row.salary else None,
+            start_time=str(row.start_time) if row.start_time else None,
+            late=float(row.late) if row.late else None,
+            drinks=float(row.drinks) if row.drinks else None,
+            off=float(row.off) if row.off else None,
+            cut_late=float(row.cut_late) if row.cut_late else None,
+            cut_drink=float(row.cut_drink) if row.cut_drink else None,
+            cut_other=float(row.cut_other) if row.cut_other else None,
+            total=float(row.total) if row.total else None,
+            sale=float(row.sale) if row.sale else None,
+            profit=float(row.profit) if row.profit else None,
+            contract=row.contract,
+            staff_num_prefix=row.staff_num_prefix,
+            agent_id_derived=row.agent_id_derived,
+            agent_mismatch=row.agent_mismatch,
+        )
+        for row in rows
+    ]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "stats": stats,
+    }
 
 
 @router.get("/staff/{staff_id:path}", response_model=ProfileResponse)

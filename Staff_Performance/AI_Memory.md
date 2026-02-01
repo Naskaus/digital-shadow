@@ -445,4 +445,162 @@ Implement complete profile management system for staff and agents with photo upl
 
 ---
 
-*Last updated: 2026-01-31 (Evening Session)*
+## Session 2026-02-01: Profile Modal UI + Job History Stats Fix
+
+### Objective
+Implement Profile Modal component with photo management, job history, and KPI statistics. Fix critical issues with filter behavior.
+
+### Milestone 3 Complete: Profile Modal UI
+
+**Component Created:** `frontend/src/components/ProfileModal.tsx` (500+ lines)
+
+**Features Implemented:**
+
+1. **Profile Info Section:**
+   - Photo display (200x200px) with placeholder avatar
+   - Admin-only upload/delete buttons (5MB max, JPEG/PNG/WEBP)
+   - Contact info grid: Phone, LINE, Instagram, Facebook, TikTok (with icons)
+   - Date of birth, Size, Weight fields
+   - Position badge (DANCER/PR)
+   - Bars list with agent assignments
+   - Notes section
+
+2. **Job History Section:**
+   - Backend endpoint: `GET /api/profiles/staff/{staff_id}/history`
+   - Paginated table (20 rows/page)
+   - Filters: Bar (multi-select), Year, Month
+   - Desktop: Full 7-column table
+   - Mobile: Card layout
+   - Columns: Date, Bar, Agent, Drinks, Salary, Profit, Contract
+
+3. **KPI Statistics:**
+   - 4-card grid above job history
+   - Metrics: Worked Days, Total Profit, Total Drinks, Total Bonus
+   - Shows averages below totals
+   - Color-coded: green (profit), blue (drinks), purple (bonus)
+   - **CRITICAL FIX:** Stats now respect bar/year/month filters
+
+**Integration:**
+- Data Table: Click staff_id → Opens ProfileModal
+- Mobile-responsive (full-screen on mobile, 800px centered desktop)
+- Escape key to close, backdrop click to close
+
+### Ranking System Implementation (Then Removal)
+
+**Initial Implementation:**
+- Created `GET /api/profiles/rankings` endpoint
+- Added medals to Profile Modal header
+- Added medals to Data Table (inline with staff_id)
+
+**Critical Design Flaw Identified:**
+- Medals calculated from ALL-TIME data
+- Should be contextual to Analytics tab filters
+- Rankings make no sense in Data Table (no filter context)
+
+**Corrective Action:**
+- ✅ Removed `/api/profiles/rankings` endpoint
+- ✅ Removed rankings state from ProfileModal
+- ✅ Removed rankings state from DataTableTab
+- ✅ Removed all medal display code
+- ✅ Removed `getRankings()` from API client
+
+**Rationale:** Medals are contextual and belong ONLY in Analytics Leaderboard where filters provide proper context.
+
+### Critical Bugs Fixed
+
+**Issue 1: Job History Stats Ignored Filters**
+
+BEFORE (wrong):
+```python
+# Stats always showed all-time totals
+stats_query = select(...).where(FactRow.staff_id == staff_id)
+```
+
+AFTER (correct):
+```python
+# Stats respect bar/year/month filters
+stats_query = select(...).where(FactRow.staff_id == staff_id)
+
+if bar:
+    stats_query = stats_query.where(FactRow.bar.in_(bar))
+if year is not None:
+    stats_query = stats_query.where(func.extract("year", FactRow.date) == year)
+if month is not None:
+    stats_query = stats_query.where(func.extract("month", FactRow.date) == month)
+```
+
+**Test Results:**
+- Default (all filters): 223 days, ฿330,870 profit
+- Filter MANDARIN: Stats decrease (only MANDARIN records)
+- Filter 2026+January: Stats show only January 2026 data
+
+**Issue 2: Route Order Conflicts**
+
+Fixed two FastAPI route ordering issues:
+1. `/staff/{staff_id:path}/history` must come BEFORE `/staff/{staff_id:path}`
+2. `/rankings` would have needed to come BEFORE `/{profile_id}` (but we removed it)
+
+### Files Modified
+
+**Backend:**
+- `app/api/routes/profiles.py`:
+  - Added `get_staff_history` endpoint (line 108)
+  - Fixed stats query to apply filters (lines 140-162)
+  - Removed `/rankings` endpoint
+
+**Frontend:**
+- `src/components/ProfileModal.tsx`: NEW (500+ lines)
+- `src/pages/staff/DataTableTab.tsx`: Integration + cleanup
+- `src/api/client.ts`: Added `profilesApi` methods, removed `getRankings()`
+
+**Test Scripts:**
+- `backend/test_profile_modal.py`: Profile + history endpoint tests
+- `backend/test_history_stats.py`: Stats verification
+- `backend/test_rankings.py`: Deleted (endpoint removed)
+- `backend/debug_profile_modal.py`: Diagnostic tool
+
+### Build Status
+
+All builds successful:
+- ✅ Backend: No errors
+- ✅ Frontend: TypeScript compilation clean
+- ✅ Production build: 339.34 KB (gzipped: 94.87 KB)
+
+### Remaining Work
+
+**Analytics Tab (NOT IMPLEMENTED YET):**
+1. Add Year + Month filters to Girls Leaderboard (currently bar-only)
+2. Add medals to top 3 positions (🥇🥈🥉)
+3. Ensure rankings update with filter changes
+4. Backend analytics endpoint should accept `bar`, `year`, `month` filters
+
+**Future Enhancements:**
+1. Photo resize/thumbnail generation
+2. Bulk photo upload
+3. Profile search autocomplete
+4. Agent performance dashboard using profile data
+
+### Technical Notes
+
+**Route Ordering Rule:**
+FastAPI matches routes in order. More specific routes MUST come before generic ones:
+```python
+@router.get("/staff/{staff_id:path}/history")  # Specific - FIRST
+@router.get("/staff/{staff_id:path}")          # Generic - SECOND
+```
+
+**Filter-Aware Stats Pattern:**
+When calculating aggregates, always apply the same filters as the data query to maintain consistency.
+
+**Photo Upload Validation:**
+- Custom magic number detection (Python 3.13 compatible)
+- Replaced deprecated `imghdr` module
+- Magic bytes: JPEG (`\xff\xd8\xff`), PNG (`\x89PNG\r\n\x1a\n`), WEBP (`RIFF...WEBP`)
+
+### Git Status
+- Branch: `opus-repair-2026-01-31` (or current working branch)
+- Working tree: Clean (all changes committed)
+
+---
+
+*Last updated: 2026-02-01*

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { rowsApi, FactRow } from '../../api/client'
+import ProfileModal from '../../components/ProfileModal'
 
 export default function DataTableTab() {
     // Filter State
@@ -12,6 +13,9 @@ export default function DataTableTab() {
     const [search, setSearch] = useState('')
     const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' })
     const [filtersOpen, setFiltersOpen] = useState(false) // Mobile filter collapse
+
+    // Profile Modal State
+    const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
 
     // Derived filter object for API
     const filters = useMemo(() => ({
@@ -368,9 +372,9 @@ export default function DataTableTab() {
             {/* KPI Strip */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 <KpiCard label="Total Rows" value={kpis?.total_rows.toLocaleString()} />
-                <KpiCard label="Total Profit" value={formatMoney(kpis?.total_profit)} />
+                <KpiCard label="Total Profit" value={formatMoney(kpis?.total_profit)} colorClass={(kpis?.total_profit ?? 0) >= 0 ? 'text-green-400' : 'text-red-500'} />
                 <KpiCard label="Total Drinks" value={kpis?.total_drinks.toLocaleString()} />
-                <KpiCard label="Avg Profit" value={formatMoney(kpis?.avg_profit)} />
+                <KpiCard label="Avg Profit" value={formatMoney(kpis?.avg_profit)} colorClass={(kpis?.avg_profit ?? 0) >= 0 ? 'text-green-400' : 'text-red-500'} />
                 <KpiCard label="Unique Staff" value={kpis?.unique_staff.toLocaleString()} />
             </div>
 
@@ -421,7 +425,12 @@ export default function DataTableTab() {
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex flex-col gap-1">
                                                         <div className="text-white font-medium text-sm">{row.bar}</div>
-                                                        <div className="text-primary-300 font-mono text-xs">{row.staff_id}</div>
+                                                        <div
+                                                            className="text-primary-300 font-mono text-xs cursor-pointer hover:text-primary-400 hover:underline"
+                                                            onClick={() => setSelectedStaffId(row.staff_id)}
+                                                        >
+                                                            {row.staff_id}
+                                                        </div>
                                                         <div className="text-dark-400 text-xs">{formatDate(row.date)}</div>
                                                     </div>
                                                     <div className={`text-lg font-bold ${(row.profit || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -447,7 +456,13 @@ export default function DataTableTab() {
                                             <div className="hidden md:grid grid-cols-7 p-3 text-sm items-center">
                                                 <div className="col-span-1 text-dark-300 truncate">{formatDate(row.date)}</div>
                                                 <div className="col-span-1 text-white font-medium truncate">{row.bar}</div>
-                                                <div className="col-span-1 text-primary-300 font-mono truncate">{row.staff_id}</div>
+                                                <div
+                                                    className="col-span-1 text-primary-300 font-mono truncate cursor-pointer hover:text-primary-400 hover:underline transition-colors"
+                                                    onClick={() => setSelectedStaffId(row.staff_id)}
+                                                    title="View profile"
+                                                >
+                                                    {row.staff_id}
+                                                </div>
                                                 <div className="col-span-1">
                                                     <div className={`text-xs px-2 py-0.5 rounded-full w-fit ${row.agent_mismatch ? 'bg-red-900/50 text-red-300' : 'bg-dark-700 text-dark-300'}`}>
                                                         {row.agent_label || '-'}
@@ -472,15 +487,23 @@ export default function DataTableTab() {
                     </div>
                 </div>
             </div>
+
+            {/* Profile Modal */}
+            {selectedStaffId && (
+                <ProfileModal
+                    staffId={selectedStaffId}
+                    onClose={() => setSelectedStaffId(null)}
+                />
+            )}
         </div>
     )
 }
 
-function KpiCard({ label, value }: { label: string; value?: string }) {
+function KpiCard({ label, value, colorClass }: { label: string; value?: string; colorClass?: string }) {
     return (
         <div className="bg-dark-800 rounded-xl p-4 border border-dark-700 border-l-4 border-l-primary-500 shadow-lg">
             <div className="text-dark-400 text-xs uppercase mb-1 font-medium tracking-wide">{label}</div>
-            <div className="text-white text-2xl font-bold tracking-tight">{value || '-'}</div>
+            <div className={`text-2xl font-bold tracking-tight ${colorClass || 'text-white'}`}>{value || '-'}</div>
         </div>
     )
 }

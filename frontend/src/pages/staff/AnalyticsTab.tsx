@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { analyticsApi, AgentPayroll, LeaderboardEntry } from '../../api/client'
-import { Loader2, TrendingUp, Trophy, Users, AlertCircle, Search, Filter, LayoutList, Globe } from 'lucide-react'
+import { Loader2, TrendingUp, Trophy, Users, AlertCircle, Search, Filter, LayoutList, Globe, FileDown } from 'lucide-react'
+import ProfileModal from '../../components/ProfileModal'
 
 // Constants
 const BARS = ['MANDARIN', 'SHARK', 'RED DRAGON']
@@ -13,13 +14,19 @@ const MONTHS = [
 ]
 
 export default function AnalyticsTab() {
-    const [activeTab, setActiveTab] = useState<'payroll' | 'leaderboard'>('payroll')
+    const [activeTab, setActiveTab] = useState<'payroll' | 'leaderboard'>('leaderboard')
 
     // Global Filters
-    const now = new Date()
-    const [selectedYear, setSelectedYear] = useState(now.getFullYear())
-    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+    const [selectedYear, setSelectedYear] = useState<number | null>(null)
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
     const [selectedBar, setSelectedBar] = useState<string>('') // '' = All
+
+    // Reset month to "All" when year changes to "All Years"
+    useEffect(() => {
+        if (!selectedYear) setSelectedMonth(null)
+    }, [selectedYear])
+
+    const filterContext = `${selectedBar || 'All Bars'} · ${selectedYear || 'All Years'}${selectedMonth ? ' · ' + MONTHS[selectedMonth - 1].label : ''}`
 
     return (
         <div className="flex flex-col h-full bg-dark-900 text-white min-h-[calc(100vh-140px)]">
@@ -67,19 +74,26 @@ export default function AnalyticsTab() {
 
                     {/* Year Selector */}
                     <select
-                        value={selectedYear}
-                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        value={selectedYear ?? ''}
+                        onChange={(e) => setSelectedYear(e.target.value === '' ? null : Number(e.target.value))}
                         className="bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
                     >
+                        <option value="">All Years</option>
                         {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
 
-                    {/* Month Selector */}
+                    {/* Month Selector - disabled when "All Years" */}
                     <select
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                        className="bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+                        value={selectedMonth ?? ''}
+                        onChange={(e) => setSelectedMonth(e.target.value === '' ? null : Number(e.target.value))}
+                        disabled={!selectedYear}
+                        className={`border rounded-lg px-3 py-2 text-sm outline-none ${
+                            !selectedYear
+                                ? 'bg-dark-700 border-dark-700 text-dark-500 cursor-not-allowed'
+                                : 'bg-dark-900 border-dark-600 focus:ring-2 focus:ring-primary-500 cursor-pointer'
+                        }`}
                     >
+                        <option value="">All Months</option>
                         {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                 </div>
@@ -98,6 +112,7 @@ export default function AnalyticsTab() {
                         year={selectedYear}
                         month={selectedMonth}
                         bar={selectedBar}
+                        filterContext={filterContext}
                     />
                 )}
             </div>
@@ -105,7 +120,7 @@ export default function AnalyticsTab() {
     )
 }
 
-function PayrollView({ year, month, bar }: { year: number, month: number, bar: string }) {
+function PayrollView({ year, month, bar }: { year: number | null, month: number | null, bar: string }) {
     const [loading, setLoading] = useState(true)
     const [data, setData] = useState<AgentPayroll[]>([])
     const [error, setError] = useState<string | null>(null)
@@ -114,9 +129,13 @@ function PayrollView({ year, month, bar }: { year: number, month: number, bar: s
         const fetchPayroll = async () => {
             setLoading(true)
             try {
-                // Calculate start and end dates for the month
-                const start = new Date(year, month - 1, 1)
-                const end = new Date(year, month, 0) // Last day of month
+                const actualYear = year ?? new Date().getFullYear()
+                const start = month
+                    ? new Date(actualYear, month - 1, 1)
+                    : new Date(actualYear, 0, 1)
+                const end = month
+                    ? new Date(actualYear, month, 0)
+                    : new Date(actualYear, 11, 31)
 
                 const fmt = (d: Date) => d.toISOString().split('T')[0]
 
@@ -246,16 +265,20 @@ function PayrollView({ year, month, bar }: { year: number, month: number, bar: s
     )
 }
 
-function LeaderboardView({ year, month, bar }: { year: number, month: number, bar: string }) {
+function LeaderboardView({ year, month, bar, filterContext }: { year: number | null, month: number | null, bar: string, filterContext: string }) {
     const [loading, setLoading] = useState(true)
     const [rows, setRows] = useState<LeaderboardEntry[]>([])
 
     // Local Filters
     const [type, setType] = useState<'STAFF' | 'AGENT'>('STAFF')
-    const [mode, setMode] = useState<'TOP10' | 'FLOP10' | 'ALL'>('TOP10')
+    const [mode, setMode] = useState<'TOP10' | 'FLOP10' | 'ALL'>('ALL')
     const [sortBy, setSortBy] = useState<'PROFIT' | 'DRINKS' | 'DAYS'>('PROFIT')
     const [search, setSearch] = useState('')
-    const [viewMode, setViewMode] = useState<'GLOBAL' | 'BY_AGENT'>('GLOBAL')
+    const [viewMode, setViewMode] = useState<'GLOBAL' | 'BY_AGENT'>('BY_AGENT')
+
+    // Profile Modal state
+    const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
+    const [selectedStaffRank, setSelectedStaffRank] = useState<number | undefined>()
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
@@ -267,8 +290,8 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                     sortBy,
                     search || undefined,
                     bar || undefined,
-                    year,
-                    month
+                    year ?? undefined,
+                    month ?? undefined
                 )
                 if (resp) setRows(resp.entries)
             } catch (err) {
@@ -286,6 +309,97 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(val)
+
+    const handleOpenProfile = (row: LeaderboardEntry) => {
+        if (type !== 'STAFF') return
+        setSelectedStaffId(row.name)
+        setSelectedStaffRank(row.rank)
+    }
+
+    // PDF-safe currency formatter (THB prefix instead of ฿ which breaks in PDF fonts)
+    const formatTHB = (val: number) => `THB ${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+
+    // PDF Export (lazy-loaded to reduce bundle size)
+    const exportToPDF = async () => {
+        const { default: jsPDF } = await import('jspdf')
+        const { default: autoTable } = await import('jspdf-autotable')
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+        // Title
+        doc.setFontSize(18)
+        const title = viewMode === 'BY_AGENT'
+            ? 'Staff Performance by Agent'
+            : 'Staff Performance Leaderboard'
+        doc.text(title, 14, 20)
+
+        // Filters
+        doc.setFontSize(10)
+        doc.text(filterContext, 14, 28)
+        doc.text(`Exported: ${new Date().toLocaleDateString('en-GB')} | ${rows.length} entries`, 14, 34)
+
+        let yOffset = 40
+
+        if (viewMode === 'BY_AGENT' && groupedData && type === 'STAFF') {
+            // GROUPED VIEW: Export each agent separately
+            groupedData.forEach((group, index) => {
+                // Agent header
+                doc.setFontSize(12)
+                doc.text(`${group.agent} (${group.bar}) - Staff: ${group.count}, Profit: ${formatTHB(group.totalProfit)}`, 14, yOffset)
+                yOffset += 5
+
+                // Staff table for this agent
+                const tableData = group.rows.map((row, idx) => [
+                    idx + 1,
+                    row.name,
+                    formatTHB(row.profit),
+                    row.drinks,
+                    formatTHB(row.bonus),
+                    row.days
+                ])
+
+                autoTable(doc, {
+                    head: [['#', 'Name', 'Profit', 'Drinks', 'Bonus', 'Days']],
+                    body: tableData,
+                    startY: yOffset,
+                    styles: { fontSize: 7 },
+                    headStyles: { fillColor: [51, 65, 85] },
+                    margin: { left: 14 }
+                })
+
+                yOffset = (doc as any).lastAutoTable.finalY + 10
+
+                // New page if needed
+                if (yOffset > 270 && index < groupedData.length - 1) {
+                    doc.addPage()
+                    yOffset = 20
+                }
+            })
+        } else {
+            // GLOBAL VIEW: Single table
+            const tableData = rows.map((row) => [
+                row.rank,
+                row.name,
+                row.bar || '-',
+                formatTHB(row.profit),
+                row.drinks,
+                formatTHB(row.bonus),
+                row.days,
+                `${formatTHB(row.rentability)}/day`
+            ])
+
+            autoTable(doc, {
+                head: [['Rank', 'Name', 'Bar', 'Profit', 'Drinks', 'Bonus', 'Days', 'Rentability']],
+                body: tableData,
+                startY: yOffset,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [51, 65, 85] },
+                alternateRowStyles: { fillColor: [241, 245, 249] }
+            })
+        }
+
+        const safeContext = filterContext.replace(/[^a-zA-Z0-9·-]/g, '_').replace(/_+/g, '_')
+        doc.save(`leaderboard-${safeContext}-${new Date().toISOString().split('T')[0]}.pdf`)
+    }
 
     // Grouping Logic
     const groupedData = useMemo(() => {
@@ -313,6 +427,15 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
         return Object.values(groups).sort((a, b) => a.bar.localeCompare(b.bar) || a.agent.localeCompare(b.agent))
     }, [rows, viewMode])
 
+    const renderMedal = (rank: number, isMobile = false) => {
+        const size = isMobile ? 'text-xl' : 'text-2xl md:text-3xl'
+        if (rank === 1) return <span className={size}>🥇</span>
+        if (rank === 2) return <span className={size}>🥈</span>
+        if (rank === 3) return <span className={size}>🥉</span>
+        return <span className="text-slate-400 text-lg">#{rank}</span>
+    }
+
+    // Desktop table
     const renderTable = (data: LeaderboardEntry[]) => (
         <table className="w-full text-left border-collapse">
             <thead>
@@ -332,6 +455,8 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                     >
                         Total Drinks {sortBy === 'DRINKS' && '↓'}
                     </th>
+                    {/* CRITICAL: BONUS column must NEVER be removed - core metric */}
+                    <th className="p-4 text-right">Total Bonus</th>
                     <th
                         className="p-4 text-right cursor-pointer hover:text-white transition-colors"
                         onClick={() => setSortBy('DAYS')}
@@ -344,22 +469,37 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
             <tbody className="divide-y divide-dark-700">
                 {data.length === 0 ? (
                     <tr>
-                        <td colSpan={7} className="p-8 text-center text-dark-500">
+                        <td colSpan={8} className="p-8 text-center text-dark-500">
                             No results found.
                         </td>
                     </tr>
                 ) : (
                     data.map((row) => (
-                        <tr key={row.rank} className="hover:bg-dark-700/50 transition-colors">
-                            <td className="p-4 text-center font-mono text-dark-400">#{row.rank}</td>
-                            <td className="p-4 font-medium text-white">{row.name}</td>
+                        <tr key={`${row.id}-${row.rank}`} className="hover:bg-dark-700/50 transition-colors">
+                            <td className="p-4 text-center">{renderMedal(row.rank)}</td>
+                            <td className="p-4 font-medium">
+                                {type === 'STAFF' ? (
+                                    <button
+                                        onClick={() => handleOpenProfile(row)}
+                                        className="text-blue-400 hover:text-blue-300 hover:underline font-medium text-left"
+                                    >
+                                        {row.name}
+                                    </button>
+                                ) : (
+                                    <span className="text-white">{row.name}</span>
+                                )}
+                            </td>
                             <td className="p-4 text-dark-300">{row.bar || '-'}</td>
-                            <td className={`p-4 text-right font-bold ${row.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <td className={`p-4 text-right font-bold ${row.profit >= 0 ? 'text-green-400' : 'text-red-500'}`}>
                                 {formatCurrency(row.profit)}
                             </td>
                             <td className="p-4 text-right font-mono text-purple-300">{row.drinks}</td>
+                            {/* CRITICAL: BONUS cell must NEVER be removed */}
+                            <td className={`p-4 text-right font-semibold ${row.bonus >= 0 ? 'text-purple-400' : 'text-red-500'}`}>
+                                {formatCurrency(row.bonus)}
+                            </td>
                             <td className="p-4 text-right text-dark-300">{row.days}</td>
-                            <td className="p-4 text-right text-dark-400 text-xs">
+                            <td className={`p-4 text-right text-xs ${row.rentability >= 0 ? 'text-dark-400' : 'text-red-500'}`}>
                                 {formatCurrency(row.rentability)}/day
                             </td>
                         </tr>
@@ -367,6 +507,73 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                 )}
             </tbody>
         </table>
+    )
+
+    // Mobile cards
+    const renderMobileCards = (data: LeaderboardEntry[]) => (
+        <div className="space-y-3">
+            {data.length === 0 ? (
+                <div className="p-8 text-center text-dark-500 bg-dark-800 rounded-xl border border-dark-700">
+                    No results found.
+                </div>
+            ) : (
+                data.map((row) => (
+                    <div key={`${row.id}-${row.rank}-mobile`} className="bg-dark-800 rounded-lg p-4 border border-dark-700">
+                        {/* Rank + Name */}
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                                {renderMedal(row.rank, true)}
+                                {type === 'STAFF' ? (
+                                    <button
+                                        onClick={() => handleOpenProfile(row)}
+                                        className="text-lg font-bold text-blue-400 text-left"
+                                    >
+                                        {row.name}
+                                    </button>
+                                ) : (
+                                    <span className="text-lg font-bold text-white">{row.name}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                                <div className="text-dark-400 text-xs">Bar</div>
+                                <div className="font-semibold text-white">{row.bar || '-'}</div>
+                            </div>
+                            <div>
+                                <div className="text-dark-400 text-xs">Days</div>
+                                <div className="font-semibold text-white">{row.days}</div>
+                            </div>
+                            <div>
+                                <div className="text-dark-400 text-xs">Profit</div>
+                                <div className={`font-semibold ${row.profit >= 0 ? 'text-green-400' : 'text-red-500'}`}>
+                                    {formatCurrency(row.profit)}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-dark-400 text-xs">Drinks</div>
+                                <div className="font-semibold text-blue-400">{row.drinks}</div>
+                            </div>
+                            {/* CRITICAL: BONUS must NEVER be removed */}
+                            <div>
+                                <div className="text-dark-400 text-xs">Bonus</div>
+                                <div className={`font-semibold ${row.bonus >= 0 ? 'text-purple-400' : 'text-red-500'}`}>
+                                    {formatCurrency(row.bonus)}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-dark-400 text-xs">Rentability</div>
+                                <div className={`font-semibold ${row.rentability >= 0 ? 'text-dark-300' : 'text-red-500'}`}>
+                                    {formatCurrency(row.rentability)}/day
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
     )
 
     return (
@@ -384,7 +591,7 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                             <Globe size={14} /> Global
                         </button>
                         <button
-                            onClick={() => setViewMode('BY_AGENT')}
+                            onClick={() => { setViewMode('BY_AGENT'); setMode('ALL'); }}
                             className={`px-3 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${viewMode === 'BY_AGENT' ? 'bg-primary-600 text-white' : 'text-dark-400 hover:text-white'}`}
                         >
                             <LayoutList size={14} /> By Agent
@@ -408,27 +615,29 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                     </button>
                 </div>
 
-                {/* Mode Toggle */}
-                <div className="flex bg-dark-900 rounded-lg p-1 h-10">
-                    <button
-                        onClick={() => setMode('TOP10')}
-                        className={`px-3 rounded-md text-sm font-medium transition-all ${mode === 'TOP10' ? 'bg-green-600 text-white' : 'text-dark-400 hover:text-white'}`}
-                    >
-                        Top 10
-                    </button>
-                    <button
-                        onClick={() => setMode('FLOP10')}
-                        className={`px-3 rounded-md text-sm font-medium transition-all ${mode === 'FLOP10' ? 'bg-red-600 text-white' : 'text-dark-400 hover:text-white'}`}
-                    >
-                        Flop 10
-                    </button>
-                    <button
-                        onClick={() => setMode('ALL')}
-                        className={`px-3 rounded-md text-sm font-medium transition-all ${mode === 'ALL' ? 'bg-dark-600 text-white' : 'text-dark-400 hover:text-white'}`}
-                    >
-                        All
-                    </button>
-                </div>
+                {/* Mode Toggle - hidden in BY_AGENT view (forced to ALL) */}
+                {viewMode !== 'BY_AGENT' && (
+                    <div className="flex bg-dark-900 rounded-lg p-1 h-10">
+                        <button
+                            onClick={() => setMode('TOP10')}
+                            className={`px-3 rounded-md text-sm font-medium transition-all ${mode === 'TOP10' ? 'bg-green-600 text-white' : 'text-dark-400 hover:text-white'}`}
+                        >
+                            Top 10
+                        </button>
+                        <button
+                            onClick={() => setMode('FLOP10')}
+                            className={`px-3 rounded-md text-sm font-medium transition-all ${mode === 'FLOP10' ? 'bg-red-600 text-white' : 'text-dark-400 hover:text-white'}`}
+                        >
+                            Flop 10
+                        </button>
+                        <button
+                            onClick={() => setMode('ALL')}
+                            className={`px-3 rounded-md text-sm font-medium transition-all ${mode === 'ALL' ? 'bg-dark-600 text-white' : 'text-dark-400 hover:text-white'}`}
+                        >
+                            All
+                        </button>
+                    </div>
+                )}
 
                 {/* Search */}
                 <div className="relative flex-1 w-full md:w-auto">
@@ -441,6 +650,16 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                         className="w-full bg-dark-900 border border-dark-600 rounded-lg pl-10 pr-4 h-10 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
                     />
                 </div>
+
+                {/* PDF Export */}
+                <button
+                    onClick={exportToPDF}
+                    disabled={rows.length === 0}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2 text-sm font-medium transition-colors h-10 shrink-0"
+                >
+                    <FileDown size={16} />
+                    <span className="hidden md:inline">Export PDF</span>
+                </button>
             </div>
 
             {/* Table or Grouped View */}
@@ -461,12 +680,16 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                                 </div>
                                 <div className="text-sm text-dark-400 space-x-4">
                                     <span>Staff: <strong className="text-white">{group.count}</strong></span>
-                                    <span>Profit: <strong className="text-green-400">{formatCurrency(group.totalProfit)}</strong></span>
+                                    <span>Profit: <strong className={group.totalProfit >= 0 ? 'text-green-400' : 'text-red-500'}>{formatCurrency(group.totalProfit)}</strong></span>
                                 </div>
                             </div>
-                            {/* Group Table */}
-                            <div className="overflow-x-auto">
+                            {/* Group Table (Desktop) */}
+                            <div className="hidden md:block overflow-x-auto">
                                 {renderTable(group.rows)}
+                            </div>
+                            {/* Group Cards (Mobile) */}
+                            <div className="md:hidden p-3">
+                                {renderMobileCards(group.rows)}
                             </div>
                         </div>
                     ))}
@@ -477,11 +700,28 @@ function LeaderboardView({ year, month, bar }: { year: number, month: number, ba
                     )}
                 </div>
             ) : (
-                <div className="bg-dark-800 rounded-xl border border-dark-700 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        {renderTable(rows)}
+                <>
+                    {/* Desktop Table */}
+                    <div className="hidden md:block bg-dark-800 rounded-xl border border-dark-700 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            {renderTable(rows)}
+                        </div>
                     </div>
-                </div>
+                    {/* Mobile Cards */}
+                    <div className="md:hidden">
+                        {renderMobileCards(rows)}
+                    </div>
+                </>
+            )}
+
+            {/* Profile Modal */}
+            {selectedStaffId && (
+                <ProfileModal
+                    staffId={selectedStaffId}
+                    onClose={() => { setSelectedStaffId(null); setSelectedStaffRank(undefined); }}
+                    rank={selectedStaffRank}
+                    context={filterContext}
+                />
             )}
         </div>
     )

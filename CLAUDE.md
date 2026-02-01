@@ -47,16 +47,17 @@ docker-compose up -d postgres     # PostgreSQL 17 on localhost:5432
 Digital-Shadow/
 ├── backend/          # FastAPI (Python 3.11+, async, port 8001)
 │   ├── app/
-│   │   ├── api/routes/    # Thin route handlers (auth, import, rows, settings, users, analytics, ai_analyst)
+│   │   ├── api/routes/    # Thin route handlers (auth, import, rows, settings, users, analytics, ai_analyst, contracts, profiles)
 │   │   ├── core/          # config.py (Pydantic settings), db.py (async engine), security.py (JWT)
 │   │   ├── models/base.py # All SQLAlchemy ORM models
 │   │   ├── schemas/       # Pydantic request/response schemas
 │   │   ├── services/      # Business logic (import_service.py, claude_analyst.py)
 │   │   └── main.py        # FastAPI app entry point, serves frontend static files
-│   └── alembic/           # Database migration scripts
+│   ├── alembic/           # Database migration scripts
+│   └── scripts/           # One-time migration scripts (migrate_profiles.py)
 ├── frontend/         # React 18 + Vite + TypeScript
 │   └── src/
-│       ├── api/client.ts       # Typed API client (authApi, rowsApi, importApi, etc.)
+│       ├── api/client.ts       # Typed API client (authApi, rowsApi, importApi, contractsApi, profilesApi, etc.)
 │       ├── pages/staff/        # Tab components (ImportTab, DataTableTab, AnalyticsTab, SettingsTab, AIAnalystTab)
 │       └── App.tsx             # React Router (Login → Landing → Staff tabs)
 └── Staff_Performance/ # Project governance docs
@@ -76,6 +77,7 @@ Digital-Shadow/
 - **API client**: Centralized in `api/client.ts` with typed request/response interfaces. Credentials included for cookie auth.
 - **Styling**: Tailwind CSS only (no component library). lucide-react for icons.
 - **AI Analyst**: Uses Anthropic Claude API for natural language analytics. Chat history stored in localStorage (client-side only). Rate limits: 10/min, 100/day per user. Audit log in `ai_analyst_queries` table.
+- **Shared Components**: Modal components (ProfileModal) in `src/components/`. Modals should handle Escape key and backdrop clicks for closing.
 
 ### Database Schema (PostgreSQL 17)
 - **fact_rows**: Central business table. `business_key = sha256(bar|date|staff_id)` ensures uniqueness. `row_hash` enables idempotent upserts.
@@ -84,8 +86,8 @@ Digital-Shadow/
 - **agent_range_rules**: Per-bar staff ID prefix → agent mapping (e.g., 100-199 → Agent 1 in MANDARIN).
 - **data_sources**: Google Sheets configuration per year.
 - **ai_analyst_queries**: Audit log for all Claude API calls.
-- **contract_types**: Contract configurations (UUID PK, duration_months, penalty_early_termination, commission_rate). Foundation for future manual data entry feature (not yet implemented). Current Google Sheets import doesn't use this.
-- **profiles**: Staff and agent profiles (UUID PK, 1,456 total: 1,429 staff + 27 agents). Stores photos as BYTEA (<5MB). Check constraints enforce profile_type rules (STAFF has staff_id, AGENT has agent_key).
+- **contract_types**: Contract configurations (UUID PK, duration_days, late_cutoff_time, penalties). CRUD endpoints available. Foundation for future manual data entry feature (not yet implemented). Current Google Sheets import doesn't use this.
+- **profiles**: Staff and agent profiles (UUID PK, 1,456 total: 1,429 staff + 27 agents). Stores photos as BYTEA (<5MB). Check constraints enforce profile_type rules (STAFF has staff_id, AGENT has agent_key). Supports photo upload/download/delete endpoints.
 - **profile_bars**: Many-to-many junction table linking profiles to bars (1,570 links). Includes agent_key for staff-agent assignments.
 - **app_users / refresh_tokens**: Authentication.
 
@@ -102,6 +104,8 @@ These come from `Staff_Performance/context.md` (READ ONLY — never modify that 
 7. **Mobile-first UI**: Test all UI changes at 412×915 (Samsung S20). No horizontal scroll. Do not change DataTableTab `estimateSize: 115px` without testing on mobile.
 8. **Production .env is sacred**: Never overwrite the server's `.env`. The deploy script handles this.
 9. **Monorepo discipline**: Backend code in `./backend`, frontend in `./frontend`. Never create root-level app directories.
+10. **FastAPI route ordering**: More specific routes MUST come before generic ones. Example: `/staff/{id}/history` before `/staff/{id}`.
+11. **Filter-aware statistics**: When calculating aggregates (totals, averages), always apply the same filters as the data query to maintain consistency.
 
 ## Session Governance
 
@@ -115,7 +119,11 @@ These come from `Staff_Performance/context.md` (READ ONLY — never modify that 
 - Production server: Raspberry Pi 5, SSH at seb@100.119.245.18, app at `/var/www/digital-shadow-v2`
 - Backend serves the built frontend from static files in production (single port 8001)
 - No automated test suite currently exists; testing is manual
-- Test scripts available: `backend/test_contracts_api.py` (validates contract CRUD endpoints)
+- Test scripts available (run with `cd backend && python <script>`):
+  - `test_contracts_api.py` - Validates contract CRUD endpoints
+  - `test_photo_endpoints.py` - Validates profile photo upload/download/delete
+  - `test_profile_modal.py` - Validates profile retrieval and job history
+  - `test_history_stats.py` - Validates KPI statistics calculations
 
 ## Secrets Management
 
@@ -142,3 +150,46 @@ cp .env.local.example .env
 - `GOOGLE_CREDENTIALS_PATH` - Path to credentials.json (Google Sheets API)
 
 See `backend/.env.local.example` for detailed instructions on obtaining each secret.
+
+## Common Pitfalls
+
+### FastAPI Route Ordering
+Routes are matched in order. More specific patterns must come before generic ones:
+
+```python
+# CORRECT ORDER
+@router.get("/staff/{staff_id:path}/history")  # Specific - FIRST
+@router.get("/staff/{staff_id:path}")          # Generic - SECOND
+
+# WRONG ORDER (would never match /history)
+@router.get("/staff/{staff_id:path}")          # Generic catches everything
+@router.get("/staff/{staff_id:path}/history")  # Never reached
+```
+
+### Photo Upload Validation (Python 3.13)
+The `imghdr` module was removed in Python 3.13. Use custom magic number detection:
+
+```python
+def detect_image_type(data: bytes) -> str | None:
+    """Detect image type from magic numbers."""
+    if data.startswith(b'\xff\xd8\xff'):
+        return 'jpeg'
+    elif data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'png'
+    elif data[0:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'webp'
+    return None
+```
+
+### Filter-Aware Statistics
+When displaying KPIs alongside filtered data, ensure statistics respect the same filters:
+
+```python
+# BAD: Stats show all-time totals while table shows filtered data
+stats_query = select(...).where(Model.id == id)
+
+# GOOD: Stats respect filters
+stats_query = select(...).where(Model.id == id)
+if filters:
+    stats_query = stats_query.where(Model.bar.in_(filters))
+```

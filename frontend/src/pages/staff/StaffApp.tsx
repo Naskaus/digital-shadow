@@ -56,10 +56,8 @@ export default function StaffApp() {
         return tab.roles.includes(user.role)
     })
 
-    // Determine default tab
-    // Admin -> import (first tab)
-    // Viewer -> data (second tab in list, but first allowed)
-    const defaultTab = allowedTabs.length > 0 ? allowedTabs[0].path : 'data'
+    // Default to Analytics tab for all users
+    const defaultTab = 'analytics'
 
     return (
         <Layout title="Staff">

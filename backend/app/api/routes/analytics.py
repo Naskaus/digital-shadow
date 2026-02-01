@@ -58,6 +58,7 @@ class LeaderboardEntry(BaseModel):
     agent_id: Optional[int] = None
     profit: float
     drinks: float
+    bonus: float  # CRITICAL: BONUS must NEVER be removed - core metric alongside Profit, Drinks, Days
     days: int
     rentability: float # profit/day
 
@@ -325,6 +326,7 @@ async def get_leaderboard(
             FactRow.agent_id_derived.label("agent_id"),
             func.sum(FactRow.profit).label("profit"),
             func.sum(FactRow.drinks).label("drinks"),
+            func.sum(FactRow.off).label("bonus"),
             func.count(distinct(FactRow.date)).label("days")
         ]
     else: # AGENT
@@ -336,6 +338,7 @@ async def get_leaderboard(
             FactRow.agent_id_derived.label("agent_id"),
             func.sum(FactRow.profit).label("profit"),
             func.sum(FactRow.drinks).label("drinks"),
+            func.sum(FactRow.off).label("bonus"),
             func.count(distinct(FactRow.date)).label("days")
         ]
         filters.append(FactRow.agent_id_derived.is_not(None))
@@ -389,6 +392,7 @@ async def get_leaderboard(
             agent_id=agent_id_val,
             profit=float(profit),
             drinks=float(row.drinks or 0),
+            bonus=float(row.bonus or 0),
             days=int(days),
             rentability=float(rentability)
         ))
